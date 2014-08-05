@@ -36,7 +36,7 @@ class Bitfield :
             (val & self.mask) >> self.shift
     #end extract
 
-    def insert(self, field, val) :
+    def insert(self, field, val = 0) :
         "returns val with field inserted in bitfield location."
         assert field >= 0 and field < 1 << self.width, "field value will not fit"
         return \
@@ -184,6 +184,69 @@ class Dungeon :
                 result
         #end neighbour
 
+        def get_side(self, dir) :
+            "returns the ROOM_SIDE value for the side of the room in the specified direction."
+            if dir == DIR.N :
+                result = self.north_side
+            elif dir == DIR.E :
+                neighbour = self.neighbour(dir)
+                if neighbour != None :
+                    result = neighbour.west_side
+                else :
+                    result = Dungeon.ROOM_SIDE.WALL
+                #end if
+            elif dir == DIR.W :
+                result = self.west_side
+            elif dir == DIR.S :
+                neighbour = self.neighbour(dir)
+                if neighbour != None :
+                    result = neighbour.north_side
+                else :
+                    result = Dungeon.ROOM_SIDE.WALL
+                #end if
+            else :
+                raise ValueError("invalid side")
+            #end if
+            return \
+                result
+        #end get_side
+
+        def set_side(self, dir, val) :
+            "sets the ROOM_SIDE value for the side of the room in the specified direction."
+            if not isinstance(val, Dungeon.ROOM_SIDE) :
+                raise ValueError("invalid new value for side")
+            #end if
+            if dir == DIR.N :
+                if self.s > 0 :
+                    self.north_side = val
+                elif val != Dungeon.ROOM_SIDE.WALL :
+                    raise ValueError("north side of northernmost room must be wall")
+                #end if
+            elif dir == DIR.E :
+                neighbour = self.neighbour(dir)
+                if neighbour != None :
+                    neighbour.west_side = val
+                elif val != Dungeon.ROOM_SIDE.WALL :
+                    raise ValueError("east side of easternmost room must be wall")
+                #end if
+            elif dir == DIR.S :
+                neighbour = self.neighbour(dir)
+                if neighbour != None :
+                    neighbour.north_side = val
+                elif val != Dungeon.ROOM_SIDE.WALL :
+                    raise ValueError("south side of southernmost room must be wall")
+                #end if
+            elif dir == DIR.W :
+                if self.e > 0 :
+                    self.west_side = val
+                elif val != Dungeon.ROOM_SIDE.WALL :
+                    raise ValueError("west side of westernmost room must be wall")
+                #end if
+            else :
+                raise ValueError("invalid side")
+            #end if
+        #end set_side
+
         def passable(self, dir) :
             "can player leave room in specified direction."
             result = False # to begin with
@@ -249,6 +312,42 @@ class Dungeon :
             #end for
         #end for
     #end find_special_rooms
+
+    @classmethod
+    def new_empty(cself, name) :
+        "creates a Dungeon with no start room, no inner walls and no specials."
+        assert len(name) < cself.DNAM_SZ, "name too long"
+        result = Dungeon()
+        result.name = name
+        result.start = None
+        result.rooms = []
+        for l in range(0, 20) :
+            level = []
+            for s in range(0, 20) :
+                row = []
+                for e in range(0, 20) :
+                    row.append \
+                      (
+                        cself.Room
+                          (
+                            parent = result,
+                            l = l,
+                            s = s,
+                            e = e,
+                            code =
+                                    cself.ROOM_WEST_SIDE.insert(e == 0)
+                                |
+                                    cself.ROOM_NORTH_SIDE.insert(s == 0),
+                          )
+                      )
+                #end for
+                level.append(row)
+            #end for
+            result.rooms.append(level)
+        #end for
+        return \
+            result
+    #end new_empty
 
     @classmethod
     def decode_bytes(cself, b) :
@@ -318,8 +417,15 @@ class Dungeon :
 #end Dungeon
 
 class DungeonFile :
-    "represents the entire contents of a dungeon file." \
-    " The dungeons field is a list of Dungeon instances."
+    "represents the entire contents of a dungeon file. The dungeons field" \
+    " is a list of Dungeon instances. Use the load method to create a DungeonFile" \
+    " object from the contents of a dungeon file, or the constructor to create" \
+    " a new, empty DungeonFile object."
+
+    def __init__(self) :
+        self.nr_dungeons = 0
+        self.dungeons = []
+    #end __init__
 
     @classmethod
     def load(cself, filename) :
@@ -383,5 +489,10 @@ class DungeonFile :
         return \
             iter(self.dungeons)
     #end __iter__
+
+    def append(self, val) :
+        assert isinstance(val, Dungeon)
+        self.dungeons.append(val)
+    #end append
 
 #end DungeonFile
