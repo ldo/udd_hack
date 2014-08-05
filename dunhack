@@ -147,6 +147,7 @@ def cmd_fromjson(args, opts) :
             for s in range(0, 20) :
                 for e in range(0, 20) :
                     jroom = jrooms[l * 400 + s * 20 + e]
+                    assert jroom["loc"] == [l, s, e], "room coords mismatch"
                     room = d[l, s, e]
                     room.west_side = jroom["west_side"]
                     room.north_side = jroom["north_side"]
