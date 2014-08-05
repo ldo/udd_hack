@@ -66,10 +66,14 @@ class DIR(Enum) :
 #end DIR
 
 class Dungeon :
-    "represents a single dungeon."
+    "represents a single dungeon. Use the decode_bytes method to load one" \
+    " from the stored file represention, or new_empty to create a new, empty" \
+    " one."
 
     DNAM_SZ = 20 # fixed space for dungeon name, including trailing null
     encoded_data_size = DNAM_SZ + 2 + 8000 # total size of encoded data for a dungeon
+
+    START_CLOSED_REPAIRS = 400 # special start-room code indicating dungeon is closed for repairs
 
     # the dungeon file contains a byte for each room, with bits representing
     # various room attributes
@@ -87,6 +91,7 @@ class Dungeon :
         RUBBLE = 3 # room has debris but is passable on that side
 
         def passable(self) :
+            "can player pass through this side."
             return \
                 self.value != 1
         #end passable
@@ -124,29 +129,31 @@ class Dungeon :
 
         # attrs defined below
 
-        def __init__(self, parent, l, s, e, mask) :
+        def __init__(self, parent, l, s, e, code) :
             "decodes the representation of the room state."
             self.parent = parent
             self.l = l
             self.s = s
             self.e = e
             for attr, name, conv in self.attrs :
-                setattr(self, attr, conv(getattr(Dungeon, "ROOM_" + name).extract(mask)))
+                setattr(self, attr, conv(getattr(Dungeon, "ROOM_" + name).extract(code)))
             #end for
         #end __init__
 
         def encode(self) :
             "returns an encoded representation of the room state."
-            mask = 0
+            code = 0
             for attr, name, conv in self.attrs :
-                mask = getattr(Dungeon, "ROOM_" + name).insert(int(getattr(self, attr)), mask)
+                code = getattr(Dungeon, "ROOM_" + name).insert(int(getattr(self, attr)), code)
             #end for
             return \
-                mask
+                code
         #end encode
 
         def neighbour(self, dir) :
-            "returns the neighbouring room in the specified direction, given by a DIR enum."
+            "returns the neighbouring room in the specified direction," \
+            " given by a DIR enum. Returns None if there is no neighbour" \
+            " in that direction."
             result = None # to begin with
             if dir == DIR.N :
                 if self.s > 0 :
@@ -245,16 +252,17 @@ class Dungeon :
 
     @classmethod
     def decode_bytes(cself, b) :
+        "creates a Dungeon from its encoded representation."
         assert len(b) == cself.encoded_data_size, "wrong size of encoded data for dungeon"
         result = Dungeon()
         name = b[:cself.DNAM_SZ]
         name = name[:name.index(b"\0")]
         result.name = name.decode("ascii")
         start = struct.unpack(">H", b[cself.DNAM_SZ : cself.DNAM_SZ + 2])[0]
-        if start == 400 :
-            result.start = None # closed for repairs
+        if start == cself.START_CLOSED_REPAIRS :
+            result.start = None
         else :
-            result.start = (0, start // 20 + 1, start % 20 + 1)
+            result.start = (0, start // 20, start % 20)
         #end if
         result.rooms = []
         for l in range(0, 20) :
@@ -290,7 +298,7 @@ class Dungeon :
             assert self.start[0] == 0, "start must be on top level"
             start = self.start[1] * 20 + self.start[2]
         else :
-            start = 400 # closed for repairs
+            start = self.START_CLOSED_REPAIRS
         #end if
         return \
             (
@@ -301,6 +309,7 @@ class Dungeon :
     #end encode_bytes
 
     def __getitem__(self, c) :
+        "allow direct indexing of rooms as Dungeon[l, s, e]."
         assert len(c) == 3, "need exactly 3 coordinates"
         return \
             self.rooms[c[0]][c[1]][c[2]]
