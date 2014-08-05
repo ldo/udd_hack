@@ -83,7 +83,7 @@ class Dungeon :
         "values for ROOM_xxx_SIDE fields."
         OPEN = 0 # room is open on that side
         WALL = 1 # room is walled off on that side
-        DUNNO = 2 # room passable on that side
+        DOOR = 2 # room passable on that side
         RUBBLE = 3 # room has debris but is passable on that side
     #end ROOM_SIDE
 
@@ -110,7 +110,7 @@ class Dungeon :
         ELV = 12 # elevator (takes you up a level)
         THR = 13 # throne
         SAF = 14 # safe
-        RCK= 15 # you find yourself in solid rock when you enter this room
+        RCK = 15 # you find yourself in solid rock when you enter this room
     #end SPC
 
     class Room :
