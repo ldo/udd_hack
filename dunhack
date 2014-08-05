@@ -1,0 +1,267 @@
+#!/usr/bin/python3
+#+
+# Tool to commit hacks on dungeon files for udd. Invoke as
+#
+#     dunhack <cmd> ...
+#
+# to invoke a command. Type
+#
+#     dunhack help
+#
+# for an overview of available commands.
+#
+# Copyright 2014 by Lawrence D'Oliveiro <ldo@geek-central.gen.nz>.
+#-
+
+import sys
+import os
+import json
+import getopt
+import dungeon as dgn
+
+#+
+# JSON representation
+#-
+
+class JSONEncode(json.JSONEncoder) :
+
+    def default(self, o) :
+        if isinstance(o, dgn.DungeonFile) :
+            result = o.dungeons
+        elif isinstance(o, dgn.Dungeon) :
+            rooms = []
+            for l in range(0, 20) :
+                for s in range(0, 20) :
+                    for e in range(0, 20) :
+                        rooms.append(o.rooms[l][s][e])
+                    #end for
+                #end for
+            #end for
+            result = \
+                {
+                    "name" : o.name,
+                    "rooms" : rooms,
+                    "start" : o.start,
+                }
+        elif isinstance(o, dgn.Dungeon.Room) :
+            result = \
+                {
+                    "loc" : (o.l, o.s, o.e),
+                    "west_side" : int(o.west_side),
+                    "north_side" : int(o.north_side),
+                    "spc" : int(o.special),
+                }
+        else :
+            result = super().encode(o)
+        #end if
+        return \
+            result
+    #end default
+
+#end JSONEncode
+
+#+
+# Definitions of valid commands.
+#
+# Each command function is passed two arguments: the first is
+# the list of positional arguments, and the second is the
+# dictionary of option keywords and corresponding values
+# that were specified.
+#-
+
+def cmd_help(args, opts) :
+    """shows the user the help description for a command, or for the help
+    command itself if no valid command is given."""
+    command_candidates = None
+    command_match = None
+    if len(args) == 1 :
+        cmd = args[0]
+        if cmd not in recognized_commands :
+            command_match = cmd
+            cmd = None
+            command_candidates = list \
+              (
+                c for c in recognized_commands.keys()
+                if fnmatch.fnmatch(c, command_match)
+              )
+        #end if
+    else :
+        cmd = "help"
+        command_candidates = recognized_commands.keys()
+    #end if
+    if cmd != None :
+        sys.stderr.write \
+          (
+                "Usage:\n\n\t%s %s %s\n\n%s.\n"
+            %
+                (
+                    sys.argv[0],
+                    cmd,
+                    recognized_commands[cmd]["help_usage"],
+                    recognized_commands[cmd]["help_descr"],
+                )
+          )
+    #end if
+    if command_candidates != None :
+        if len(command_candidates) != 0 :
+            sys.stderr.write \
+              (
+                    "\nValid commands%(matching)s are: %(commands)s.\n"
+                %
+                    {
+                        "matching" :
+                            ["", " matching \"%s\"" % command_match][command_match != None],
+                        "commands" : ", ".join(sorted(command_candidates)),
+                    }
+              )
+        else :
+            sys.stderr.write("No commands matching \"%s\".\n" % command_match)
+        #end if
+    #end if
+#end cmd_help
+
+def cmd_tojson(args, opts) :
+    infile = args[0]
+    outfile = args[1]
+    dunge = dgn.DungeonFile.load(infile)
+    out = open(outfile, "w")
+    out.write(JSONEncode().encode(dunge))
+    out.flush()
+    out.close()
+#end cmd_tojson
+
+def cmd_fromjson(args, opts) :
+    infile = args[0]
+    outfile = args[1]
+    jdunge = json.load(open(infile, "r"))
+    assert type(jdunge) == list, "expecting list of dungeons"
+    dunge = dgn.DungeonFile()
+    for jd in jdunge :
+        assert type(jd) == dict, "expecting dict to define dungeon"
+        assert "name" in jd and "rooms" in jd and "start" in jd, "dungeon dict must define name, rooms and start"
+        d = dgn.Dungeon.new_empty(jd["name"])
+        d.start = jd["start"]
+        jrooms = jd["rooms"]
+        assert len(jrooms) == 8000, "expecting 8000 rooms"
+        for l in range(0, 20) :
+            for s in range(0, 20) :
+                for e in range(0, 20) :
+                    jroom = jrooms[l * 400 + s * 20 + e]
+                    room = d[l, s, e]
+                    room.west_side = jroom["west_side"]
+                    room.north_side = jroom["north_side"]
+                    room.special = dgn.Dungeon.SPC(jroom["spc"])
+                #end for
+            #end for
+        #end for
+        dunge.append(d)
+    #end for
+    dunge.save(outfile)
+#end cmd_fromjson
+
+recognized_commands = \
+  {
+# key is command name, value is dictionary with following fields:
+#     args -- nr required positional args, or tuple of min and max nr required positional args
+#     opts -- tuple of long option names. If a name ends in an equal sign, then it takes a value.
+#     multivalued -- optional tuple of option keywords which can occur multiple times
+#     required -- optional tuple of option keywords which must be present
+#     help_usage -- used to construct a usage string when giving help for the command.
+#     help_descr -- explanatory text shown when giving help for the command.
+#     action -- the function to invoke to actually perform the command.
+
+    "help" :
+      {
+        "args" : (0, 1),
+        "opts" : (),
+        "action" : cmd_help,
+        "help_usage" : "[cmd]",
+        "help_descr" : "gives help about the specified command",
+      },
+
+    "fromjson" :
+      {
+        "args" : 2,
+        "opts" : (),
+        "action" : cmd_fromjson,
+        "help_usage" : "jsonfile dgnfile",
+        "help_descr" : "generates a dungeon file from JSON format",
+      },
+
+    "tojson" :
+      {
+        "args" : 2,
+        "opts" : (),
+        "action" : cmd_tojson,
+        "help_usage" : "dgnfile jsonfile",
+        "help_descr" : "converts a dungeon file to JSON format",
+      },
+  }
+
+#+
+# Mainline
+#-
+
+def mainline() :
+    if len(sys.argv) < 2 :
+        raise getopt.GetoptError("need at least one arg, the cmd to execute")
+    #end if
+    cmd = sys.argv[1]
+    cmd_entry = recognized_commands.get(cmd)
+    if cmd_entry == None :
+        raise getopt.GetoptError("unrecognized command %s" % repr(cmd))
+    #end if
+    (opts_list, args) = getopt.gnu_getopt \
+      (
+        sys.argv[2:],
+        "",
+        cmd_entry["opts"]
+      )
+    if type(cmd_entry["args"]) == tuple :
+        if \
+          (
+                len(args) < cmd_entry["args"][0]
+            or
+                len(args) > cmd_entry["args"][1]
+          ):
+            raise getopt.GetoptError \
+              (
+                "%s command needs %u..%u args" % ((cmd,) + cmd_entry["args"])
+              )
+        #end if
+    else :
+        if len(args) != cmd_entry["args"] :
+            raise getopt.GetoptError \
+              (
+                "%s command needs exactly %u args" % (cmd, cmd_entry["args"])
+              )
+        #end if
+    #end if
+    opts = {}
+    multi_opts = frozenset(cmd_entry.get("multivalued", ()))
+    for keyword, value in opts_list :
+        if keyword[:2] == "--" :
+            keyword = keyword[2:]
+            if keyword in multi_opts :
+                values = opts.get(keyword, [])
+                values.append(value)
+                opts[keyword] = values
+            else :
+                opts[keyword] = value
+            #end if
+        #end if
+    #end for
+    required_opts = cmd_entry.get("required")
+    if required_opts != None :
+        missing = set(required_opts) - set(opts.keys())
+        if len(missing) != 0 :
+            raise getopt.GetoptError \
+              (
+                "%s command needs option(s) %s" % (cmd, ",".join(tuple(missing)))
+              )
+        #end if
+    #end if
+    cmd_entry["action"](args, opts) # can raise exceptions
+#end mainline
+
+mainline()
