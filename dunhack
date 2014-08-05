@@ -58,8 +58,10 @@ class JSONEncode(json.JSONEncoder) :
                     "loc" : (o.l, o.s, o.e),
                     "west_side" : o.west_side.name,
                     "north_side" : o.north_side.name,
-                    "spc" : o.special.name,
                 }
+            if o.special != dgn.Dungeon.SPC.NONE :
+                result["spc"] = o.special.name
+            #end if
         else :
             result = super().encode(o)
         #end if
@@ -160,7 +162,11 @@ def cmd_fromjson(args, opts) :
                     room = d[l, s, e]
                     room.west_side = ROOM_SIDE_byname[jroom["west_side"]]
                     room.north_side = ROOM_SIDE_byname[jroom["north_side"]]
-                    room.special = SPC_byname[jroom["spc"]]
+                    if "spc" in jroom :
+                        room.special = SPC_byname[jroom["spc"]]
+                    else :
+                        room.special = dgn.Dungeon.SPC.NONE
+                    #end if
                 #end for
             #end for
         #end for
