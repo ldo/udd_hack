@@ -23,15 +23,6 @@ import dungeon as dgn
 # JSON representation
 #-
 
-SPC_byname = {}
-for n in dgn.Dungeon.SPC :
-    SPC_byname[n.name] = n
-#end for
-ROOM_SIDE_byname = {}
-for n in dgn.Dungeon.ROOM_SIDE :
-    ROOM_SIDE_byname[n.name] = n
-#end for
-
 class JSONEncode(json.JSONEncoder) :
 
     def default(self, o) :
@@ -160,10 +151,10 @@ def cmd_fromjson(args, opts) :
                     jroom = jrooms[l * 400 + s * 20 + e]
                     assert jroom["loc"] == [l, s, e], "room coords mismatch"
                     room = d[l, s, e]
-                    room.west_side = ROOM_SIDE_byname[jroom["west_side"]]
-                    room.north_side = ROOM_SIDE_byname[jroom["north_side"]]
+                    room.west_side = dgn.Dungeon.ROOM_SIDE.__members__[jroom["west_side"]]
+                    room.north_side = dgn.Dungeon.ROOM_SIDE.__members__[jroom["north_side"]]
                     if "spc" in jroom :
-                        room.special = SPC_byname[jroom["spc"]]
+                        room.special = dgn.Dungeon.SPC.__members__[jroom["spc"]]
                     else :
                         room.special = dgn.Dungeon.SPC.NONE
                     #end if
