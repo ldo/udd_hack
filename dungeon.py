@@ -85,6 +85,12 @@ class Dungeon :
         WALL = 1 # room is walled off on that side
         DOOR = 2 # room passable on that side
         RUBBLE = 3 # room has debris but is passable on that side
+
+        def passable(self) :
+            return \
+                self.value != 1
+        #end passable
+
     #end ROOM_SIDE
 
     # following are supposed to be dynamic contents only, generated on
@@ -171,6 +177,32 @@ class Dungeon :
                 result
         #end neighbour
 
+        def passable(self, dir) :
+            "can player leave room in specified direction."
+            result = False # to begin with
+            if dir == DIR.N :
+                result = self.s > 0 and self.north_side.passable()
+            elif dir == DIR.E :
+                neighbour = self.neighbour(dir)
+                if neighbour != None :
+                    result = neighbour.west_side.passable()
+                #end if
+            elif dir == DIR.S :
+                neighbour = self.neighbour(dir)
+                if neighbour != None :
+                    result = neighbour.north_side.passable()
+                #end if
+            elif dir == DIR.W :
+                result = self.e > 0 and self.west_side.passable()
+            elif dir == DIR.U :
+                pass # elevator?
+            elif dir == DIR.D :
+                pass # pit?
+            #end if
+            return \
+                result
+        #end passable
+
         def __repr__(self) :
             return \
                 (
@@ -222,7 +254,7 @@ class Dungeon :
         if start == 400 :
             result.start = None # closed for repairs
         else :
-            result.start = (start // 20 + 1, start % 20 + 1)
+            result.start = (0, start // 20 + 1, start % 20 + 1)
         #end if
         result.rooms = []
         for l in range(0, 20) :
@@ -255,7 +287,8 @@ class Dungeon :
             #end for
         #end for
         if self.start != None :
-            start = self.start[0] * 20 + self.start[1]
+            assert self.start[0] == 0, "start must be on top level"
+            start = self.start[1] * 20 + self.start[2]
         else :
             start = 400 # closed for repairs
         #end if
