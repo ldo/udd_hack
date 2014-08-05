@@ -80,7 +80,7 @@ class Dungeon :
     ROOM_SPECIAL = Bitfield(4, 4) # special contents for room (0 means none)
 
     class ROOM_SIDE(IntEnum) :
-        "values for ROOM_xxx_SIDE fields"
+        "values for ROOM_xxx_SIDE fields."
         OPEN = 0 # room is open on that side
         WALL = 1 # room is walled off on that side
         DUNNO = 2 # room passable on that side
@@ -115,6 +115,8 @@ class Dungeon :
 
     class Room :
         "represents a room in the dungeon."
+
+        # attrs defined below
 
         def __init__(self, parent, l, s, e, mask) :
             "decodes the representation of the room state."
@@ -264,6 +266,11 @@ class Dungeon :
                 bytes(rooms)
             )
     #end encode_bytes
+
+    def __getitem__(self, c) :
+        return \
+            self.rooms[c[0]][c[1]][c[2]]
+    #end __getitem__
 
 #end Dungeon
 
