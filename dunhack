@@ -125,7 +125,7 @@ def cmd_tojson(args, opts) :
     outfile = args[1]
     dunge = dgn.DungeonFile.load(infile)
     out = open(outfile, "w")
-    out.write(JSONEncode().encode(dunge))
+    out.write(JSONEncode(indent = 4).encode(dunge))
     out.flush()
     out.close()
 #end cmd_tojson
