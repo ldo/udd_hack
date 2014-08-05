@@ -1,5 +1,5 @@
 #+
-# Encoding/decoding of dungeon files for udd.
+# Encoding/decoding of dungeon and character files for udd.
 #
 # Copyright 2014 by Lawrence D'Oliveiro <ldo@geek-central.gen.nz>.
 # Licensed under CC-BY-SA <http://creativecommons.org/licenses/by-sa/4.0/>.
@@ -51,6 +51,12 @@ class Bitfield :
 
 #end Bitfield
 
+def fromcstring(b) :
+    "converts null-terminated bytes to a Python string."
+    return \
+        b[:b.index(b"\0")].decode("ascii")
+#end fromcstring
+
 #+
 # Dungeon representation
 #-
@@ -67,7 +73,7 @@ class DIR(Enum) :
 
 class Dungeon :
     "represents a single dungeon. Use the decode_bytes method to load one" \
-    " from the stored file represention, or new_empty to create a new, empty" \
+    " from the stored file representation, or new_empty to create a new, empty" \
     " one."
 
     DNAM_SZ = 20 # fixed space for dungeon name, including trailing null
@@ -354,9 +360,7 @@ class Dungeon :
         "creates a Dungeon from its encoded representation."
         assert len(b) == cself.encoded_data_size, "wrong size of encoded data for dungeon"
         result = Dungeon()
-        name = b[:cself.DNAM_SZ]
-        name = name[:name.index(b"\0")]
-        result.name = name.decode("ascii")
+        result.name = fromcstring(b[:cself.DNAM_SZ])
         start = struct.unpack(">H", b[cself.DNAM_SZ : cself.DNAM_SZ + 2])[0]
         if start == cself.START_CLOSED_REPAIRS :
             result.start = None
@@ -423,7 +427,6 @@ class DungeonFile :
     " a new, empty DungeonFile object."
 
     def __init__(self) :
-        self.nr_dungeons = 0
         self.dungeons = []
     #end __init__
 
@@ -459,7 +462,6 @@ class DungeonFile :
             f.write(dungeon.encode_bytes())
         #end for
         f.flush()
-        f.close()
     #end save
 
 #+
@@ -496,3 +498,228 @@ class DungeonFile :
     #end append
 
 #end DungeonFile
+
+#+
+# Character representation
+#-
+
+class Character :
+    "represents a single character. Use the decode_bytes method to load one" \
+    " from the stored file representation, or the constructor to create a new one."
+
+    class UC(IntEnum) :
+        "indexes into character attributes array (65 elements)."
+        ALIVE = 0 # character is actually alive
+        STRENGTH = 1 # strength attribute
+        INTEL = 2 # intelligence attribute
+        WISDOM = 3 # wisdom attribute
+        CONSTIT = 4 # constitution attribute
+        DEX = 5 # dexterity attribute
+        CHARISMA = 6 # charisma attribute
+        CLASS = 7 # character class
+        LEVEL = 8 # character level
+        EXP = 9 # experience
+        MAXHIT = 10 # max hit points
+        CURHIT = 11 # current hit points
+        GOLDFOUND = 12 # how much gold character is carrying in dungeon
+        TOTALGOLD = 13 # how much gold character has brought out of dungeon
+        # 14 not used
+        DGNLVL = 15 # number of level within dungeon
+        DGN_X = 16 # north/south coordinate within dungeon (increasing southwards)
+        DGN_Y = 17 # east/west-coordinate within dungeon (increasing eastwards)
+        DGNNR = 18 # number of dungeon
+        # 19 and 20 initialized in swb.c, but not used anywhere else?
+        EXPGAIN = 21 # how much experience user will gain on successfully leaving the dungeon
+        WEAPON = 22 # weapon power, -1 for none, >0 for magic (actual weapon is class-dependent)
+        ARMOR = 23 # armour power, -1 for none, >0 for magic (actual armour type is class-dependent)
+        SHIELD = 24 # type of shield, if any: 0 none, -1 non-magic, 1 magic
+        SPELLSADJ1 = 25 # deduction from next spell advancement at level 1
+        SPELLSADJ2 = 26 # deduction from next spell advancement at level 2
+        SPELLSADJ3 = 27 # deduction from next spell advancement at level 3
+        SPELLSADJ4 = 28 # deduction from next spell advancement at level 4
+        # 29, 30 not used (additional spell levels)
+        SPELLS1 = 31 # nr of spells available at level 1
+        SPELLS2 = 32 # nr of spells available at level 2
+        SPELLS3 = 33 # nr of spells available at level 3
+        SPELLS4 = 34 # nr of spells available at level 4
+        # 35, 36 not used (additional spell levels)
+        # spells in effect:
+        SPELL_LIGHT = 37 # light
+        SPELL_PROT = 38 # protection against evil
+        SPELL_SHLD = 39 # shield
+        SPELL_PRAY = 40 # pray
+        SPELL_DTRP = 41 # detect traps
+        SPELL_SLNC = 42 # silence
+        SPELL_LEVT = 43 # levitation (avoid falling down pits)
+        SPELL_STRG = 44 # strength
+        SPELL_FEAR = 45 # fear
+        SPELL_INVS = 46 # invisibility
+        SPELL_TMST = 47 # time-stop
+        # end spells in effect
+        GID = 48 # group ID of user owning character
+        UID = 49 # user ID of user owning character
+        HASORB = 50 # player has Orb
+        RING = 51 # power of ring of regeneration, if any
+        ELVEN_CLOAK = 52 # power of elven cloak, if any
+        ELVEN_BOOTS = 53 # power of elven boots, if any
+        # 54, 55, 56 not used
+        LOCKED = 57 # character is locked (in use)
+        SAFE_COMBN = 58 # secret combination to the safe
+        CREATED = 59 # timestamp when character was created
+        LASTRUN = 60 # timestamp when character was last run
+        DEBUGCHR = 61 # character created for debugging only
+        WIZONLY = 62 # character only accessible to wizard players
+        VALUE = 63 # determines value of items found, also saved direction from last move spell?
+        STATE = 64 # controls what to do with character next
+    #end UC
+
+    class CHRCLASS(IntEnum) :
+        "character classes."
+        FIGHTER = 0
+        CLERIC = 1
+        MAGICIAN = 2
+    #end CHRCLASS
+
+    UC_SIZE = 65
+    NAMELEN = 64 # fixed space for character name, including trailing null
+    encoded_data_size = 2 * NAMELEN + 4 * UC_SIZE
+
+    class Attributes :
+        "indexable array of attribute values."
+
+        def __init__(self) :
+            self.attributes = [0] * Character.UC_SIZE
+        #end __init__
+
+        def __getitem__(self, i) :
+            if isinstance(i, Character.UC) :
+                i = int(i)
+            #end if
+            return \
+                self.attributes[i]
+        #end __getitem__
+
+        def __setitem__(self, i, val) :
+            if isinstance(i, Character.UC) :
+                i = int(i)
+            #end if
+            if not isinstance(val, int) :
+                raise TypeError("attribute values must be integers")
+            #end if
+            self.attributes[i] = val
+        #end __setitem__
+
+    #end Attributes
+
+    def __init__(self, name, secret_name) :
+        self.name = name
+        self.secret_name = secret_name
+        self.attributes = self.Attributes()
+    #end __init__
+
+    @classmethod
+    def decode_bytes(cself, b) :
+        assert len(b) == cself.encoded_data_size, "wrong size of encoded data for character"
+        result = Character(fromcstring(b[:cself.NAMELEN]), fromcstring(b[cself.NAMELEN:cself.NAMELEN * 2]))
+        for i, v in enumerate(struct.unpack(">%dI" % cself.UC_SIZE, b[2 * cself.NAMELEN:])) :
+            result.attributes[i] = v
+        #end for
+        return \
+            result
+    #end decode_bytes
+
+    def encode_bytes(self) :
+        "returns the complete encoded representation of the character."
+        return \
+            struct.pack \
+              (
+                ">%ds%ds%dI" % (self.NAMELEN, self.NAMELEN, self.UC_SIZE),
+                self.name.encode("ascii"),
+                self.secret_name.encode("ascii"),
+                *self.attributes.attributes
+              )
+    #end encode_bytes
+
+#end Character
+
+class CharacterFile :
+    "represents the contents of a character file. The characters field" \
+    " is a list of Character instances. Use the load method to create a CharacterFile" \
+    " object from the contents of a character file, or the constructor to create" \
+    " a new, empty CharacterFile object.."
+
+    def __init__(self) :
+        self.nr_characters = 0
+        self.characters = []
+    #end __init__
+
+    @classmethod
+    def load(cself, filename) :
+        "loads the contents of a character file into a new CharacterFile object and returns it."
+        f = open(filename, "rb")
+        nr_characters = structread(f, ">I")[0]
+        characters = []
+        for i in range(0, nr_characters) :
+            data = f.read(Character.encoded_data_size)
+            if len(data) < Character.encoded_data_size :
+                raise RuntimeError \
+                  (
+                        "only got %d bytes, expecting %d bytes"
+                    %
+                        (len(data), Character.encoded_data_size)
+                  )
+            #end if
+            characters.append(Character.decode_bytes(data))
+        #end for
+        result = CharacterFile()
+        result.characters = characters
+        return \
+            result
+    #end load
+
+    def save(self, filename) :
+        "encodes and saves the CharacterFile object into a file."
+        f = open(filename, "wb")
+        f.write(struct.pack(">I", len(self.characters)))
+        for character in self.characters :
+            f.write(character.encode_bytes())
+        #end for
+        f.flush()
+    #end save
+
+#+
+# Transparent access to characters list:
+#
+# Perhaps provide access by character name as well?
+#-
+
+    def __len__(self) :
+        return \
+            len(self.characters)
+    #end __len__
+
+    def __getitem__(self, i) :
+        return \
+            self.characters[i]
+    #end __getitem__
+
+    def __setitem__(self, i, val) :
+        assert isinstance(val, Character)
+        self.characters[i] = val
+    #end __setitem__
+
+    def __delitem__(self, i) :
+        del self.characters[i]
+    #end __delitem__
+
+    def __iter__(self) :
+        return \
+            iter(self.characters)
+    #end __iter__
+
+    def append(self, val) :
+        assert isinstance(val, Character)
+        self.characters.append(val)
+    #end append
+
+#end CharacterFile
