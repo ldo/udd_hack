@@ -2,6 +2,7 @@
 # Encoding/decoding of dungeon files for udd.
 #
 # Copyright 2014 by Lawrence D'Oliveiro <ldo@geek-central.gen.nz>.
+# Licensed under CC-BY-SA <http://creativecommons.org/licenses/by-sa/4.0/>.
 #-
 
 from enum import \
