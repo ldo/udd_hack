@@ -217,7 +217,7 @@ class Dungeon :
                 raise ValueError("invalid new value for side")
             #end if
             if dir == DIR.N :
-                if self.s > 0 :
+                if self.l == 0 or self.s > 0 : # allow opening hole in north wall at top level as exit from dungeon
                     self.north_side = val
                 elif val != Dungeon.ROOM_SIDE.WALL :
                     raise ValueError("north side of northernmost room must be wall")
@@ -237,7 +237,7 @@ class Dungeon :
                     raise ValueError("south side of southernmost room must be wall")
                 #end if
             elif dir == DIR.W :
-                if self.e > 0 :
+                if self.l == 0 or self.e > 0 : # allow opening hole in west wall at top level as exit from dungeon
                     self.west_side = val
                 elif val != Dungeon.ROOM_SIDE.WALL :
                     raise ValueError("west side of westernmost room must be wall")
