@@ -268,6 +268,7 @@ class Dungeon :
     #end encode_bytes
 
     def __getitem__(self, c) :
+        assert len(c) == 3, "need exactly 3 coordinates"
         return \
             self.rooms[c[0]][c[1]][c[2]]
     #end __getitem__
