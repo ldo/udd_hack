@@ -60,11 +60,17 @@ class IndentedOutput :
         self.parent.flush()
     #end flush
 
+#+
+# Handling of lists, to ensure separators only occur between items
+#-
+
     def start_list(self) :
+        "initializes handling of a list of items."
         self.first_item = True
     #end start_list
 
     def next_item(self, sep) :
+        "Call before outputting each item. outputs sep only if there was a preceding item."
         if self.first_item :
             self.first_item = False
         else :
@@ -73,6 +79,7 @@ class IndentedOutput :
     #end next_item
 
     def finish_list(self, sep) :
+        "Call after processing list. Outputs sep only if there was a call to next_item."
         if not self.first_item :
             self.parent.write(sep)
         #end if
