@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 #+
-# Tool to commit hacks on dungeon files for udd. Invoke as
+# Tool to commit hacks on dungeon and character files for udd. Invoke as
 #
 #     dunhack <cmd> ...
 #
@@ -18,6 +18,8 @@ import sys
 import json
 import getopt
 from dungeon import \
+    Character, \
+    CharacterFile, \
     Dungeon, \
     DungeonFile
 
@@ -219,6 +221,79 @@ def cmd_dgnfromjson(args, opts) :
     dunge.save(outfile)
 #end cmd_dgnfromjson
 
+def cmd_chrtojson(args, opts) :
+    infile = args[0]
+    outfile = args[1]
+    characters = CharacterFile.load(infile)
+    out = open(outfile, "w")
+    out.write("[\n")
+    out2 = IndentedOutput(out)
+    out3 = IndentedOutput(out2)
+    out4 = IndentedOutput(out3)
+    first_char = True
+    for character in characters :
+        if first_char :
+            first_char = False
+        else :
+            out2.write(",\n")
+        #end if
+        out2.write("{\n")
+        out3.write("\"name\":%s,\n" % json.dumps(character.name))
+        out3.write("\"secret_name\":%s,\n" % json.dumps(character.secret_name))
+        out3.write("\"attributes\":{\n")
+        first_attr = True
+        for attrib in Character.UC :
+            if first_attr :
+                first_attr = False
+            else :
+                out4.write(",\n")
+            #end if
+            out4.write("\"%s\":%d" % (attrib.name, character.attributes[attrib]))
+        #end for
+        out4.write("\n")
+        out3.write("}\n")
+        out2.write("}")
+    #end for
+    if not first_char :
+        out.write("\n")
+    #end if
+    out.write("]\n")
+    out.flush()
+#end cmd_chrtojson
+
+def cmd_chrfromjson(args, opts) :
+    infile = args[0]
+    outfile = args[1]
+    jchars = json.load(open(infile, "r"))
+    assert type(jchars) == list, "expecting list of characters"
+    chars = CharacterFile()
+    for jchar in jchars :
+        assert type(jchar) == dict, "expecting dict to define character"
+        assert "name" in jchar and "secret_name" in jchar and "attributes" in jchar, \
+            "character dict must define name, secret_name and attributes"
+        c = Character(jchar["name"], jchar["secret_name"])
+        jattribs = jchar["attributes"]
+        assert type(jattribs) == dict, "expecting dict to define attributes"
+        attrs_seen = set()
+        for k in jattribs :
+            attrib = Character.UC.__members__[k]
+            c.attributes[attrib] = jattribs[k]
+            attrs_seen.add(attrib)
+        #end for
+        missing = []
+        for k in Character.UC :
+            if not k in attrs_seen :
+                missing.append(k.name)
+            #end if
+        #end for
+        if len(missing) != 0 :
+            raise ValueError("missing character attribute(s): %s" % ",".join(missing))
+        #end if
+        chars.append(c)
+    #end for
+    chars.save(outfile)
+#end cmd_chrfromjson
+
 recognized_commands = \
   {
 # key is command name, value is dictionary with following fields:
@@ -255,6 +330,24 @@ recognized_commands = \
         "action" : cmd_dgnfromjson,
         "help_usage" : "jsonfile dgnfile",
         "help_descr" : "generates a dungeon file from JSON format",
+      },
+
+    "chrtojson" :
+      {
+        "args" : 2,
+        "opts" : (),
+        "action" : cmd_chrtojson,
+        "help_usage" : "chrfile jsonfile",
+        "help_descr" : "converts a character file to JSON format",
+      },
+
+    "chrfromjson" :
+      {
+        "args" : 2,
+        "opts" : (),
+        "action" : cmd_chrfromjson,
+        "help_usage" : "jsonfile chrfile",
+        "help_descr" : "generates a character file from JSON format",
       },
   }
 
