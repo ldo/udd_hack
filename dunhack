@@ -17,50 +17,48 @@
 import sys
 import json
 import getopt
-import dungeon as dgn
+from dungeon import \
+    Dungeon, \
+    DungeonFile
 
 #+
 # JSON representation
 #-
 
-class JSONEncode(json.JSONEncoder) :
+class IndentedOutput :
+    "wrapper for an output text stream that prepends indentation onto every line." \
+    " Can be used to wrap another instance of itself for nested indentation. Just" \
+    " don’t switch streams in the middle of a line."
 
-    def default(self, o) :
-        if isinstance(o, dgn.DungeonFile) :
-            result = o.dungeons
-        elif isinstance(o, dgn.Dungeon) :
-            rooms = []
-            for l in range(0, 20) :
-                for s in range(0, 20) :
-                    for e in range(0, 20) :
-                        rooms.append(o.rooms[l][s][e])
-                    #end for
-                #end for
-            #end for
-            result = \
-                {
-                    "name" : o.name,
-                    "rooms" : rooms,
-                    "start" : o.start,
-                }
-        elif isinstance(o, dgn.Dungeon.Room) :
-            result = \
-                {
-                    "loc" : (o.l, o.s, o.e),
-                    "west_side" : o.west_side.name,
-                    "north_side" : o.north_side.name,
-                }
-            if o.special != dgn.Dungeon.SPC.NONE :
-                result["spc"] = o.special.name
+    indent = 4 * " "
+
+    def __init__(self, parent) :
+        self.parent = parent
+        self.sol = True
+    #end __init__
+
+    def write(self, s) :
+        while len(s) != 0 :
+            if self.sol :
+                self.parent.write(self.indent)
             #end if
-        else :
-            result = super().encode(o)
-        #end if
-        return \
-            result
-    #end default
+            eol = s.find("\n")
+            self.sol = eol >= 0
+            if self.sol :
+                eol += 1 # include newline
+            else :
+                eol = len(s)
+            #end if
+            self.parent.write(s[:eol])
+            s = s[eol:]
+        #end while
+    #end write
 
-#end JSONEncode
+    def flush(self) :
+        self.parent.flush()
+    #end flush
+
+#end IndentedOutput
 
 #+
 # Definitions of valid commands.
@@ -122,26 +120,81 @@ def cmd_help(args, opts) :
     #end if
 #end cmd_help
 
-def cmd_tojson(args, opts) :
+def cmd_dgntojson(args, opts) :
     infile = args[0]
     outfile = args[1]
-    dunge = dgn.DungeonFile.load(infile)
+    dunge = DungeonFile.load(infile)
     out = open(outfile, "w")
-    out.write(JSONEncode(indent = 4).encode(dunge))
+    out.write("[\n")
+    out2 = IndentedOutput(out)
+    out3 = IndentedOutput(out2)
+    out4 = IndentedOutput(out3)
+    first_dungeon = True
+    for dungeon in dunge :
+        if first_dungeon :
+            first_dungeon = False
+        else :
+            out2.write(",\n")
+        #end if
+        out2.write("{\n")
+        out3.write("\"name\":%s,\n" % json.dumps(dungeon.name))
+        out3.write("\"rooms\":[\n")
+        first_room = True
+        for l in range(0, 20) :
+            for s in range(0, 20) :
+                for e in range(0, 20) :
+                    room = dungeon[l, s, e]
+                    if first_room :
+                        first_room = False
+                    else :
+                        out4.write(",\n")
+                    #end if
+                    out4.write \
+                      (
+                            "{\"loc\":[%d,%d,%d],\"west_side\":%s,\"north_side\":%s"
+                        %
+                            (
+                                l,
+                                s,
+                                e,
+                                json.dumps(room.west_side.name),
+                                json.dumps(room.north_side.name),
+                            )
+                      )
+                    if room.special != Dungeon.SPC.NONE :
+                        out4.write(",\"spc\":%s" % json.dumps(room.special.name))
+                    #end if
+                    out4.write("}")
+                #end for
+            #end for
+        #end for
+        out4.write("\n],\n")
+        out3.write("\"start\":")
+        if dungeon.start != None :
+            out3.write("[%d,%d,%d]" % dungeon.start)
+        else :
+            out3.write("null")
+        #end if
+        out3.write("\n")
+        out2.write("}")
+    #end for
+    if not first_dungeon :
+        out.write("\n")
+    #end if
+    out.write("]\n")
     out.flush()
-    out.close()
-#end cmd_tojson
+#end cmd_dgntojson
 
-def cmd_fromjson(args, opts) :
+def cmd_dgnfromjson(args, opts) :
     infile = args[0]
     outfile = args[1]
     jdunge = json.load(open(infile, "r"))
     assert type(jdunge) == list, "expecting list of dungeons"
-    dunge = dgn.DungeonFile()
+    dunge = DungeonFile()
     for jd in jdunge :
         assert type(jd) == dict, "expecting dict to define dungeon"
         assert "name" in jd and "rooms" in jd and "start" in jd, "dungeon dict must define name, rooms and start"
-        d = dgn.Dungeon.new_empty(jd["name"])
+        d = Dungeon.new_empty(jd["name"])
         d.start = jd["start"]
         jrooms = jd["rooms"]
         assert len(jrooms) == 8000, "expecting 8000 rooms"
@@ -151,12 +204,12 @@ def cmd_fromjson(args, opts) :
                     jroom = jrooms[l * 400 + s * 20 + e]
                     assert jroom["loc"] == [l, s, e], "room coords mismatch"
                     room = d[l, s, e]
-                    room.west_side = dgn.Dungeon.ROOM_SIDE.__members__[jroom["west_side"]]
-                    room.north_side = dgn.Dungeon.ROOM_SIDE.__members__[jroom["north_side"]]
+                    room.west_side = Dungeon.ROOM_SIDE.__members__[jroom["west_side"]]
+                    room.north_side = Dungeon.ROOM_SIDE.__members__[jroom["north_side"]]
                     if "spc" in jroom :
-                        room.special = dgn.Dungeon.SPC.__members__[jroom["spc"]]
+                        room.special = Dungeon.SPC.__members__[jroom["spc"]]
                     else :
-                        room.special = dgn.Dungeon.SPC.NONE
+                        room.special = Dungeon.SPC.NONE
                     #end if
                 #end for
             #end for
@@ -164,7 +217,7 @@ def cmd_fromjson(args, opts) :
         dunge.append(d)
     #end for
     dunge.save(outfile)
-#end cmd_fromjson
+#end cmd_dgnfromjson
 
 recognized_commands = \
   {
@@ -186,22 +239,22 @@ recognized_commands = \
         "help_descr" : "gives help about the specified command",
       },
 
-    "fromjson" :
+    "dgntojson" :
       {
         "args" : 2,
         "opts" : (),
-        "action" : cmd_fromjson,
-        "help_usage" : "jsonfile dgnfile",
-        "help_descr" : "generates a dungeon file from JSON format",
-      },
-
-    "tojson" :
-      {
-        "args" : 2,
-        "opts" : (),
-        "action" : cmd_tojson,
+        "action" : cmd_dgntojson,
         "help_usage" : "dgnfile jsonfile",
         "help_descr" : "converts a dungeon file to JSON format",
+      },
+
+    "dgnfromjson" :
+      {
+        "args" : 2,
+        "opts" : (),
+        "action" : cmd_dgnfromjson,
+        "help_usage" : "jsonfile dgnfile",
+        "help_descr" : "generates a dungeon file from JSON format",
       },
   }
 
