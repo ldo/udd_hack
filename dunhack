@@ -60,6 +60,24 @@ class IndentedOutput :
         self.parent.flush()
     #end flush
 
+    def start_list(self) :
+        self.first_item = True
+    #end start_list
+
+    def next_item(self, sep) :
+        if self.first_item :
+            self.first_item = False
+        else :
+            self.write(sep)
+        #end if
+    #end next_item
+
+    def finish_list(self, sep) :
+        if not self.first_item :
+            self.parent.write(sep)
+        #end if
+    #end finish_list
+
 #end IndentedOutput
 
 #+
@@ -131,26 +149,18 @@ def cmd_dgntojson(args, opts) :
     out2 = IndentedOutput(out)
     out3 = IndentedOutput(out2)
     out4 = IndentedOutput(out3)
-    first_dungeon = True
+    out2.start_list()
     for dungeon in dunge :
-        if first_dungeon :
-            first_dungeon = False
-        else :
-            out2.write(",\n")
-        #end if
+        out2.next_item(",\n")
         out2.write("{\n")
         out3.write("\"name\":%s,\n" % json.dumps(dungeon.name))
         out3.write("\"rooms\":[\n")
-        first_room = True
+        out4.start_list()
         for l in range(0, 20) :
             for s in range(0, 20) :
                 for e in range(0, 20) :
                     room = dungeon[l, s, e]
-                    if first_room :
-                        first_room = False
-                    else :
-                        out4.write(",\n")
-                    #end if
+                    out4.next_item(",\n")
                     out4.write \
                       (
                             "{\"loc\":[%d,%d,%d],\"west_side\":%s,\"north_side\":%s"
@@ -170,7 +180,8 @@ def cmd_dgntojson(args, opts) :
                 #end for
             #end for
         #end for
-        out4.write("\n],\n")
+        out4.finish_list("\n")
+        out4.write("],\n")
         out3.write("\"start\":")
         if dungeon.start != None :
             out3.write("[%d,%d,%d]" % dungeon.start)
@@ -180,9 +191,7 @@ def cmd_dgntojson(args, opts) :
         out3.write("\n")
         out2.write("}")
     #end for
-    if not first_dungeon :
-        out.write("\n")
-    #end if
+    out2.finish_list("\n")
     out.write("]\n")
     out.flush()
 #end cmd_dgntojson
@@ -230,33 +239,23 @@ def cmd_chrtojson(args, opts) :
     out2 = IndentedOutput(out)
     out3 = IndentedOutput(out2)
     out4 = IndentedOutput(out3)
-    first_char = True
+    out2.start_list()
     for character in characters :
-        if first_char :
-            first_char = False
-        else :
-            out2.write(",\n")
-        #end if
+        out2.next_item(",\n")
         out2.write("{\n")
         out3.write("\"name\":%s,\n" % json.dumps(character.name))
         out3.write("\"secret_name\":%s,\n" % json.dumps(character.secret_name))
         out3.write("\"attributes\":{\n")
-        first_attr = True
+        out4.start_list()
         for attrib in Character.UC :
-            if first_attr :
-                first_attr = False
-            else :
-                out4.write(",\n")
-            #end if
+            out4.next_item(",\n")
             out4.write("\"%s\":%d" % (attrib.name, character.attributes[attrib]))
         #end for
-        out4.write("\n")
+        out4.finish_list("\n")
         out3.write("}\n")
         out2.write("}")
     #end for
-    if not first_char :
-        out.write("\n")
-    #end if
+    out2.finish_list("\n")
     out.write("]\n")
     out.flush()
 #end cmd_chrtojson
