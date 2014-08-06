@@ -1,10 +1,11 @@
 #!/usr/bin/python3
 #+
-# Tool to commit hacks on dungeon and character files for udd. Invoke as
+# Tool to commit hacks on dungeon and character files for udd <https://github.com/ldo/udd>.
+# Invoke as
 #
 #     dunhack <cmd> ...
 #
-# to invoke a command. Type
+# to execute a command. Type
 #
 #     dunhack help
 #
