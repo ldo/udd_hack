@@ -533,10 +533,10 @@ class Character :
         WEAPON = 22 # weapon power, -1 for none, >0 for magic (actual weapon is class-dependent)
         ARMOR = 23 # armour power, -1 for none, >0 for magic (actual armour type is class-dependent)
         SHIELD = 24 # type of shield, if any: 0 none, -1 non-magic, 1 magic
-        SPELLSADJ1 = 25 # deduction from next spell advancement at level 1
-        SPELLSADJ2 = 26 # deduction from next spell advancement at level 2
-        SPELLSADJ3 = 27 # deduction from next spell advancement at level 3
-        SPELLSADJ4 = 28 # deduction from next spell advancement at level 4
+        SPELLSAVE1 = 25 # saved nr of spells available at level 1
+        SPELLSAVE2 = 26 # saved nr of spells available at level 2
+        SPELLSAVE3 = 27 # saved nr of spells available at level 3
+        SPELLSAVE4 = 28 # saved nr of spells available at level 4
         # 29, 30 not used (additional spell levels)
         SPELLS1 = 31 # nr of spells available at level 1
         SPELLS2 = 32 # nr of spells available at level 2
