@@ -81,7 +81,7 @@ class IndentedOutput :
     def finish_list(self, sep) :
         "Call after processing list. Outputs sep only if there was a call to next_item."
         if not self.first_item :
-            self.parent.write(sep)
+            self.write(sep)
         #end if
     #end finish_list
 
