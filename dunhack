@@ -17,6 +17,7 @@
 
 import sys
 import json
+import fnmatch
 import getopt
 from dungeon import \
     Character, \
