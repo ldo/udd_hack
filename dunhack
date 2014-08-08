@@ -16,6 +16,8 @@
 #-
 
 import sys
+import cairo
+import colorsys
 import json
 import fnmatch
 import getopt
@@ -91,6 +93,18 @@ class IndentedOutput :
     #end finish_list
 
 #end IndentedOutput
+
+#+
+# Useful graphics stuff
+#-
+
+def draw_centred_text(g, s) :
+    "draws s into Cairo context g using the current position and text settings."
+    extents = g.text_extents(s) # tuple: (x_bearing, y_bearing, width, height, x_advance, y_advance)
+    x, y = g.get_current_point()
+    g.move_to(x - extents[2] / 2, y)
+    g.show_text(s)
+#end draw_centred_text
 
 #+
 # Global data
@@ -259,6 +273,123 @@ def cmd_dgnlist(args, opts) :
     #end for
 #end cmd_dgnlist
 
+def cmd_dgnmap(args, opts) :
+
+    class map_params :
+        room_width = 20.0
+        room_height = 20.0
+        grid_thickness = 0.5
+        wall_thickness = 4.0
+        door_gap = 1 / 3
+        map_padding = (40.0, 12.0, 12.0, 24.0) # top, right, bottom, left à la CSS
+        title_y = -25.0
+        title_size = 10.0
+        row_coords_x = -15.0
+        col_coords_y = -10.0
+
+        bg_color = colorsys.hsv_to_rgb(0, 0, 1)
+        text_color = colorsys.hsv_to_rgb(0, 0, 0)
+        wall_color = colorsys.hsv_to_rgb(0, 0, 0)
+        grid_color = colorsys.hsv_to_rgb(0.55, 0.4, 0.8)
+        rubble_color = colorsys.hsv_to_rgb(0, 0, 0.7)
+
+        scaling = 2.0
+    #end map_params
+
+#begin cmd_dgnmap
+    dgnfile, dgnname, level, outfile = args
+    level = int(level)
+    dungeons = DungeonFile.load(dgnfile)
+    dungeon = dungeons[dgnname]
+    # option to specify pixel density?
+    pix = cairo.ImageSurface \
+      (
+        cairo.FORMAT_RGB24, # format
+        round((map_params.room_width * Dungeon.NR_ROOMS_EW + map_params.map_padding[1] + map_params.map_padding[3]) * map_params.scaling), # width
+        round((map_params.room_height * Dungeon.NR_ROOMS_SN + map_params.map_padding[0] + map_params.map_padding[2]) * map_params.scaling) # height
+      )
+    g = cairo.Context(pix)
+    g.scale(map_params.scaling, map_params.scaling)
+    g.translate(map_params.map_padding[3], map_params.map_padding[0])
+    g.set_source_rgb(*map_params.bg_color)
+    g.paint()
+    g.set_source_rgb(*map_params.text_color)
+    g.select_font_face("sans-serif")
+    g.set_font_size(map_params.title_size)
+    g.move_to(map_params.room_width * Dungeon.NR_ROOMS_EW / 2, map_params.title_y)
+    draw_centred_text(g, "%s — level %d" % (dgnname, level))
+    g.set_source_rgb(*map_params.grid_color)
+    for south in range(0, Dungeon.NR_ROOMS_SN) :
+        g.move_to(map_params.row_coords_x, (south + 0.5) * map_params.room_height)
+        draw_centred_text(g, "%d" % south)
+    #end for
+    for east in range(0, Dungeon.NR_ROOMS_EW) :
+        g.move_to((east + 0.5) * map_params.room_width, map_params.col_coords_y)
+        draw_centred_text(g, "%d" % east)
+    #end for
+    g.set_line_width(map_params.grid_thickness)
+    g.new_path()
+    for south in range(0, Dungeon.NR_ROOMS_SN + 1) :
+        g.move_to(0, map_params.room_height * south)
+        g.rel_line_to(map_params.room_width * Dungeon.NR_ROOMS_EW, 0)
+    #end for
+    for east in range(0, Dungeon.NR_ROOMS_EW + 1) :
+        g.move_to(map_params.room_width * east, 0)
+        g.rel_line_to(0, map_params.room_height * Dungeon.NR_ROOMS_SN)
+    #end for
+    g.stroke()
+    g.set_source_rgb(*map_params.wall_color)
+    g.set_line_width(map_params.wall_thickness)
+    for south in range(0, Dungeon.NR_ROOMS_SN) :
+        for east in range(0, Dungeon.NR_ROOMS_EW) :
+            room = dungeon[level, south, east]
+            if room.west_side != ROOM_SIDE.OPEN :
+                g.new_path()
+                g.move_to(east * map_params.room_height, south * map_params.room_width)
+                if room.west_side == ROOM_SIDE.WALL :
+                    g.rel_line_to(0, map_params.room_height)
+                elif room.west_side == ROOM_SIDE.DOOR :
+                    g.rel_line_to(0, map_params.room_height * (1 - map_params.door_gap) / 2)
+                    g.rel_move_to(0, map_params.room_height * map_params.door_gap)
+                    g.rel_line_to(0, map_params.room_height * (1 - map_params.door_gap) / 2)
+                elif room.west_side == ROOM_SIDE.RUBBLE :
+                    g.set_source_rgb(*map_params.rubble_color)
+                    g.rel_line_to(0, map_params.room_height)
+                #end if
+                g.stroke()
+                g.set_source_rgb(*map_params.wall_color)
+            #end if
+            if room.north_side != ROOM_SIDE.OPEN :
+                g.new_path()
+                g.move_to(east * map_params.room_height, south * map_params.room_width)
+                if room.north_side == ROOM_SIDE.WALL :
+                    g.rel_line_to(map_params.room_width, 0)
+                elif room.north_side == ROOM_SIDE.DOOR :
+                    g.rel_line_to(map_params.room_width * (1 - map_params.door_gap) / 2, 0)
+                    g.rel_move_to(map_params.room_width * map_params.door_gap, 0)
+                    g.rel_line_to(map_params.room_width * (1 - map_params.door_gap) / 2, 0)
+                elif room.north_side == ROOM_SIDE.RUBBLE :
+                    g.set_source_rgb(*map_params.rubble_color)
+                    g.rel_line_to(0, map_params.room_width)
+                #end if
+                g.stroke()
+                g.set_source_rgb(*map_params.wall_color)
+            #end if
+            # contents TBD
+        #end for
+        g.new_path()
+        g.move_to(map_params.room_width * Dungeon.NR_ROOMS_EW, 0)
+        g.rel_line_to(0, map_params.room_height * Dungeon.NR_ROOMS_SN) # easternmost wall
+        g.stroke()
+    #end for
+    g.new_path()
+    g.move_to(0, map_params.room_height * Dungeon.NR_ROOMS_SN)
+    g.rel_line_to(map_params.room_width * Dungeon.NR_ROOMS_EW, 0) # southernmost wall
+    g.stroke()
+    pix.flush()
+    pix.write_to_png(outfile)
+#end cmd_dgnmap
+
 def cmd_dgnspecials(args, opts) :
     dgnfile = args[0]
     dgnname = args[1]
@@ -404,6 +535,16 @@ recognized_commands = \
                 "action" : cmd_dgnlist,
                 "help_usage" : "dgnfile",
                 "help_descr": "lists the names of the dungeons in the specified dungeon file",
+              },
+
+            "map" :
+              {
+                "args" : 4,
+                "opts" : (),
+                "action" : cmd_dgnmap,
+                "help_usage" : "dgnfile dgnname level outfile",
+                "help_descr" :
+                    "generates a map in PNG format of the specified level of the specified dungeon",
               },
 
             "specials" :
