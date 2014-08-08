@@ -76,6 +76,11 @@ class Dungeon :
     " from the stored file representation, or new_empty to create a new, empty" \
     " one."
 
+    # fixed dimensions of a dungeon (cannot be changed):
+    NR_LEVELS = 20
+    NR_ROOMS_EW = 20
+    NR_ROOMS_SN = 20
+
     DNAM_SZ = 20 # fixed space for dungeon name, including trailing null
     encoded_data_size = DNAM_SZ + 2 + 8000 # total size of encoded data for a dungeon
 
@@ -166,11 +171,11 @@ class Dungeon :
                     result = self.parent.rooms[self.l][self.s - 1][self.e]
                 #end if
             elif dir == DIR.E :
-                if self.e + 1 < 20 :
+                if self.e + 1 < Dungeon.NR_ROOMS_EW :
                     result = self.parent.rooms[self.l][self.s][self.e + 1]
                 #end if
             elif dir == DIR.S :
-                if self.s + 1 < 20 :
+                if self.s + 1 < Dungeon.NR_ROOMS_SN :
                     result = self.parent.rooms[self.l][self.s + 1][self.e]
                 #end if
             elif dir == DIR.W :
@@ -182,7 +187,7 @@ class Dungeon :
                     result = self.parent.rooms[self.l - 1][self.s][self.e]
                 #end if
             elif dir == DIR.D :
-                if self.l + 1 < 20 :
+                if self.l + 1 < Dungeon.NR_LEVELS :
                     result = self.parent.rooms[self.l + 1][self.s][self.e]
                 #end if
             #end if
@@ -307,9 +312,9 @@ class Dungeon :
 
     def find_special_rooms(self, spc) :
         "iterates over all rooms with the specified special code."
-        for l in range(0, 20) :
-            for s in range(0, 20) :
-                for e in range(0, 20) :
+        for l in range(0, Dungeon.NR_LEVELS) :
+            for s in range(0, Dungeon.NR_ROOMS_SN) :
+                for e in range(0, Dungeon.NR_ROOMS_EW) :
                     room = self.rooms[l][s][e]
                     if room.special == spc :
                         yield room
@@ -327,11 +332,11 @@ class Dungeon :
         result.name = name
         result.start = None
         result.rooms = []
-        for l in range(0, 20) :
+        for l in range(0, cself.NR_LEVELS) :
             level = []
-            for s in range(0, 20) :
+            for s in range(0, cself.NR_ROOMS_SN) :
                 row = []
-                for e in range(0, 20) :
+                for e in range(0, cself.NR_ROOMS_EW) :
                     row.append \
                       (
                         cself.Room
@@ -365,17 +370,17 @@ class Dungeon :
         if start == cself.START_CLOSED_REPAIRS :
             result.start = None
         else :
-            result.start = (0, start // 20, start % 20)
+            result.start = (0, start // cself.NR_ROOMS_EW, start % cself.NR_ROOMS_EW)
         #end if
         result.rooms = []
-        for l in range(0, 20) :
+        for l in range(0, cself.NR_LEVELS) :
             level = []
-            for s in range(0, 20) :
+            for s in range(0, cself.NR_ROOMS_SN) :
                 row = []
-                for e in range(0, 20) :
+                for e in range(0, cself.NR_ROOMS_EW) :
                     row.append \
                       (
-                        cself.Room(result, l, s, e, b[cself.DNAM_SZ + 2 + l * 400 + s * 20 + e])
+                        cself.Room(result, l, s, e, b[cself.DNAM_SZ + 2 + l * cself.NR_ROOMS_SN * cself.NR_ROOMS_EW + s * cself.NR_ROOMS_EW + e])
                       )
                 #end for
                 level.append(row)
@@ -390,16 +395,16 @@ class Dungeon :
         "returns the complete encoded representation of the dungeon."
         assert len(self.name) < self.DNAM_SZ, "dungeon name is too long"
         rooms = []
-        for l in range(0, 20) :
-            for s in range(0, 20) :
-                for e in range(0, 20) :
+        for l in range(0, self.NR_LEVELS) :
+            for s in range(0, self.NR_ROOMS_SN) :
+                for e in range(0, self.NR_ROOMS_EW) :
                     rooms.append(self.rooms[l][s][e].encode())
                 #end for
             #end for
         #end for
         if self.start != None :
             assert self.start[0] == 0, "start must be on top level"
-            start = self.start[1] * 20 + self.start[2]
+            start = self.start[1] * self.NR_ROOMS_EW + self.start[2]
         else :
             start = self.START_CLOSED_REPAIRS
         #end if

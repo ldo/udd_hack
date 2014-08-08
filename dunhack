@@ -175,9 +175,9 @@ def cmd_dgntojson(args, opts) :
         out3.write("\"name\":%s,\n" % json.dumps(dungeon.name))
         out3.write("\"rooms\":[\n")
         out4.start_list()
-        for l in range(0, 20) :
-            for s in range(0, 20) :
-                for e in range(0, 20) :
+        for l in range(0, Dungeon.NR_LEVELS) :
+            for s in range(0, Dungeon.NR_ROOMS_SN) :
+                for e in range(0, Dungeon.NR_ROOMS_EW) :
                     room = dungeon[l, s, e]
                     out4.next_item(",\n")
                     out4.write \
@@ -226,11 +226,11 @@ def cmd_dgnfromjson(args, opts) :
         d = Dungeon.new_empty(jd["name"])
         d.start = jd["start"]
         jrooms = jd["rooms"]
-        assert len(jrooms) == 8000, "expecting 8000 rooms"
-        for l in range(0, 20) :
-            for s in range(0, 20) :
-                for e in range(0, 20) :
-                    jroom = jrooms[l * 400 + s * 20 + e]
+        assert len(jrooms) == Dungeon.NR_LEVELS * Dungeon.NR_ROOMS_SN * Dungeon.NR_ROOMS_EW, "expecting 8000 rooms"
+        for l in range(0, Dungeon.NR_LEVELS) :
+            for s in range(0, Dungeon.NR_ROOMS_SN) :
+                for e in range(0, Dungeon.NR_ROOMS_EW) :
+                    jroom = jrooms[l * Dungeon.NR_ROOMS_SN * Dungeon.NR_ROOMS_EW + s * Dungeon.NR_ROOMS_EW + e]
                     assert jroom["loc"] == [l, s, e], "room coords mismatch"
                     room = d[l, s, e]
                     room.west_side = Dungeon.ROOM_SIDE.__members__[jroom["west_side"]]
