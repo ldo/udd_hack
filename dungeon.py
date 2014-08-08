@@ -469,6 +469,27 @@ class DungeonFile :
         f.flush()
     #end save
 
+    def name_to_index(self, name, must_exist = True) :
+        "returns the index of the dungeon matching the specified name."
+        i = 0
+        while True :
+            if i == len(self.dungeons) :
+                if must_exist :
+                    raise KeyError("no such dungeon %s" % repr(name))
+                #end if
+                result = None
+                break
+            #end if
+            if self.dungeons[i].name == name :
+                result = i
+                break
+            #end if
+            i += 1
+        #end while
+        return \
+            result
+    #end name_to_index
+
 #+
 # Transparent access to dungeons list:
 #-
@@ -479,6 +500,11 @@ class DungeonFile :
     #end __len__
 
     def __getitem__(self, i) :
+        if isinstance(i, str) :
+            i = self.name_to_index(i)
+        elif not isinstance(i, int) :
+            raise TypeError("must specify dungeon name or index")
+        #end if
         return \
             self.dungeons[i]
     #end __getitem__
@@ -489,6 +515,11 @@ class DungeonFile :
     #end __setitem__
 
     def __delitem__(self, i) :
+        if isinstance(i, str) :
+            i = self.name_to_index(i)
+        elif not isinstance(i, int) :
+            raise TypeError("must specify dungeon name or index")
+        #end if
         del self.dungeons[i]
     #end __delitem__
 
@@ -692,10 +723,29 @@ class CharacterFile :
         f.flush()
     #end save
 
+    def name_to_index(self, name, must_exist = True) :
+        "returns the index of the character matching the specified name."
+        i = 0
+        while True :
+            if i == len(self.characters) :
+                if must_exist :
+                    raise KeyError("no such character %s" % repr(name))
+                #end if
+                result = None
+                break
+            #end if
+            if self.characters[i].name == name :
+                result = i
+                break
+            #end if
+            i += 1
+        #end while
+        return \
+            result
+    #end name_to_index
+
 #+
 # Transparent access to characters list:
-#
-# Perhaps provide access by character name as well?
 #-
 
     def __len__(self) :
@@ -704,6 +754,11 @@ class CharacterFile :
     #end __len__
 
     def __getitem__(self, i) :
+        if isinstance(i, str) :
+            i = self.name_to_index(i)
+        elif not isinstance(i, int) :
+            raise TypeError("must specify character name or index")
+        #end if
         return \
             self.characters[i]
     #end __getitem__
@@ -714,6 +769,11 @@ class CharacterFile :
     #end __setitem__
 
     def __delitem__(self, i) :
+        if isinstance(i, str) :
+            i = self.name_to_index(i)
+        elif not isinstance(i, int) :
+            raise TypeError("must specify character name or index")
+        #end if
         del self.characters[i]
     #end __delitem__
 
