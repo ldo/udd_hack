@@ -9,6 +9,8 @@ from enum import \
     Enum, \
     IntEnum
 import struct
+from random import \
+    random
 
 #+
 # Useful stuff
@@ -109,8 +111,9 @@ class Dungeon :
 
     #end ROOM_SIDE
 
-    # following are supposed to be dynamic contents only, generated on
-    # loading dungeon levels, not saved in dungeon file
+    # following are dynamic contents only, generated on loading
+    # dungeon levels, not saved in dungeon file (bits won't fit in
+    # single byte anyway)
     ROOM_MONSTER = Bitfield(8, 1) # there is a monster in the room
     ROOM_TREASURE = Bitfield(9, 1) # there is treasure in the room
     ROOM_TREASURE_BOOBYTRAP = Bitfield(10, 1) # the treasure is booby-trapped
@@ -284,6 +287,36 @@ class Dungeon :
                 result
         #end passable
 
+        def populate(self) :
+            "randomly sets the dynamic contents for the room, using the same" \
+            " probabilities as udd."
+            # default to nothing dynamic in room
+            self.monster = False
+            self.treasure = False
+            self.treasure_boobytrapped = False
+            if random() <= 0.4 :
+                if random() <= 0.5 :
+                    if random() > 0.5 :
+                        self.monster = True
+                    elif random() > 0.05 :
+                        self.monster = True
+                        self.treasure = True
+                    else :
+                        self.monster = True
+                        self.treasure = True
+                        self.treasure_boobytrapped = True
+                    #end if
+                else :
+                    if random() > 0.2 :
+                        self.treasure = True
+                    else :
+                        self.treasure = True
+                        self.treasure_boobytrapped = True
+                   #end if
+                #end if
+            #end if
+        #end populate
+
         def __repr__(self) :
             return \
                 (
@@ -292,9 +325,9 @@ class Dungeon :
                     (
                         self.l, self.s, self.e,
                         self.special,
-                        (" ", "MONST")[self.monster],
-                        (" ", "TREAS")[self.treasure],
-                        (" ", "TRAP")[self.treasure_boobytrapped],
+                        ("", " MONST")[self.monster],
+                        ("", " TREAS")[self.treasure],
+                        ("", " TRAP")[self.treasure_boobytrapped],
                     )
                 )
         #end __repr__
