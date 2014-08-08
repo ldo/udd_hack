@@ -284,6 +284,7 @@ def cmd_dgnmap(args, opts) :
         map_padding = (40.0, 12.0, 12.0, 24.0) # top, right, bottom, left à la CSS
         title_y = -25.0
         title_size = 10.0
+        special_size = 6.0
         row_coords_x = -15.0
         col_coords_y = -10.0
 
@@ -340,12 +341,17 @@ def cmd_dgnmap(args, opts) :
     g.stroke()
     g.set_source_rgb(*map_params.wall_color)
     g.set_line_width(map_params.wall_thickness)
+    g.set_font_size(map_params.special_size)
+    if dungeon.start != None and level == dungeon.start[0] :
+        g.move_to((dungeon.start[2] + 0.5) * map_params.room_width, (dungeon.start[1] + 0.5) * map_params.room_height)
+        draw_centred_text(g, "X")
+    #end if
     for south in range(0, Dungeon.NR_ROOMS_SN) :
         for east in range(0, Dungeon.NR_ROOMS_EW) :
             room = dungeon[level, south, east]
             if room.west_side != ROOM_SIDE.OPEN :
                 g.new_path()
-                g.move_to(east * map_params.room_height, south * map_params.room_width)
+                g.move_to(east * map_params.room_width, south * map_params.room_height)
                 if room.west_side == ROOM_SIDE.WALL :
                     g.rel_line_to(0, map_params.room_height)
                 elif room.west_side == ROOM_SIDE.DOOR :
@@ -361,7 +367,7 @@ def cmd_dgnmap(args, opts) :
             #end if
             if room.north_side != ROOM_SIDE.OPEN :
                 g.new_path()
-                g.move_to(east * map_params.room_height, south * map_params.room_width)
+                g.move_to(east * map_params.room_width, south * map_params.room_height)
                 if room.north_side == ROOM_SIDE.WALL :
                     g.rel_line_to(map_params.room_width, 0)
                 elif room.north_side == ROOM_SIDE.DOOR :
@@ -375,7 +381,10 @@ def cmd_dgnmap(args, opts) :
                 g.stroke()
                 g.set_source_rgb(*map_params.wall_color)
             #end if
-            # contents TBD
+            if room.special != SPC.NONE :
+                g.move_to((east + 0.5) * map_params.room_width, (south + 0.5) * map_params.room_height)
+                draw_centred_text(g, room.special.name)
+            #end if
         #end for
         g.new_path()
         g.move_to(map_params.room_width * Dungeon.NR_ROOMS_EW, 0)
