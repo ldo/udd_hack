@@ -24,6 +24,9 @@ from dungeon import \
     CharacterFile, \
     Dungeon, \
     DungeonFile
+SPC = Dungeon.SPC
+ROOM_SIDE = Dungeon.ROOM_SIDE
+UC = Character.UC
 
 #+
 # JSON representation
@@ -192,7 +195,7 @@ def cmd_dgntojson(args, opts) :
                                 json.dumps(room.north_side.name),
                             )
                       )
-                    if room.special != Dungeon.SPC.NONE :
+                    if room.special != SPC.NONE :
                         out4.write(",\"spc\":%s" % json.dumps(room.special.name))
                     #end if
                     out4.write("}")
@@ -233,12 +236,12 @@ def cmd_dgnfromjson(args, opts) :
                     jroom = jrooms[l * Dungeon.NR_ROOMS_SN * Dungeon.NR_ROOMS_EW + s * Dungeon.NR_ROOMS_EW + e]
                     assert jroom["loc"] == [l, s, e], "room coords mismatch"
                     room = d[l, s, e]
-                    room.west_side = Dungeon.ROOM_SIDE.__members__[jroom["west_side"]]
-                    room.north_side = Dungeon.ROOM_SIDE.__members__[jroom["north_side"]]
+                    room.west_side = ROOM_SIDE.__members__[jroom["west_side"]]
+                    room.north_side = ROOM_SIDE.__members__[jroom["north_side"]]
                     if "spc" in jroom :
-                        room.special = Dungeon.SPC.__members__[jroom["spc"]]
+                        room.special = SPC.__members__[jroom["spc"]]
                     else :
-                        room.special = Dungeon.SPC.NONE
+                        room.special = SPC.NONE
                     #end if
                 #end for
             #end for
@@ -249,12 +252,35 @@ def cmd_dgnfromjson(args, opts) :
 #end cmd_dgnfromjson
 
 def cmd_dgnlist(args, opts) :
-    infile = args[0]
-    dungeons = DungeonFile.load(infile)
+    dgnfile = args[0]
+    dungeons = DungeonFile.load(dgnfile)
     for i, dungeon in enumerate(dungeons) :
         sys.stdout.write("%3d %s\n" % (i + 1, dungeon.name))
     #end for
 #end cmd_dgnlist
+
+def cmd_dgnspecials(args, opts) :
+    dgnfile = args[0]
+    dgnname = args[1]
+    dungeons = DungeonFile.load(dgnfile)
+    try :
+        dungeon = dungeons[dgnname]
+    except KeyError :
+        raise getopt.GetoptError("no such dungeon %s in file %s" % (repr(dgnname), dgnfile))
+    #end try
+    for spc in SPC :
+        if spc != SPC.NONE :
+            rooms = list(dungeon.find_special_rooms(spc))
+            sys.stdout.write("%s: " % (spc.name))
+            if len(rooms) != 0 :
+                sys.stdout.write(", ".join("[%d, %d, %d]" % (room.l, room.s, room.e) for room in rooms))
+            else :
+                sys.stdout.write("(none)")
+            #end if
+            sys.stdout.write("\n")
+        #end if
+    #end for
+#end cmd_dgnspecials
 
 def cmd_chrtojson(args, opts) :
     infile = args[0]
@@ -272,7 +298,7 @@ def cmd_chrtojson(args, opts) :
         out3.write("\"secret_name\":%s,\n" % json.dumps(character.secret_name))
         out3.write("\"attributes\":{\n")
         out4.start_list()
-        for attrib in Character.UC :
+        for attrib in UC :
             out4.next_item(",\n")
             out4.write("\"%s\":%d" % (attrib.name, character.attributes[attrib]))
         #end for
@@ -299,12 +325,12 @@ def cmd_chrfromjson(args, opts) :
         assert type(jattribs) == dict, "expecting dict to define attributes"
         attrs_seen = set()
         for k in jattribs :
-            attrib = Character.UC.__members__[k]
+            attrib = UC.__members__[k]
             c.attributes[attrib] = jattribs[k]
             attrs_seen.add(attrib)
         #end for
         missing = []
-        for k in Character.UC :
+        for k in UC :
             if not k in attrs_seen :
                 missing.append(k.name)
             #end if
@@ -321,7 +347,7 @@ def cmd_chrlist(args, opts) :
     infile = args[0]
     characters = CharacterFile.load(infile)
     for i, character in enumerate(characters) :
-        if character.attributes[Character.UC.ALIVE] :
+        if character.attributes[UC.ALIVE] :
             sys.stdout.write("%3d %s\n" % (i + 1, character.name))
         #end if
     #end for
@@ -378,6 +404,15 @@ recognized_commands = \
                 "action" : cmd_dgnlist,
                 "help_usage" : "dgnfile",
                 "help_descr": "lists the names of the dungeons in the specified dungeon file",
+              },
+
+            "specials" :
+              {
+                "args" : 2,
+                "opts" : (),
+                "action" : cmd_dgnspecials,
+                "help_usage" : "dgnfile dgnname",
+                "help_descr" : "lists special room contents for the specified dungeon in the specified file",
               },
           },
         "help_descr" : "invokes subcommands for managing dungeon level files",
