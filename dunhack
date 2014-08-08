@@ -90,6 +90,12 @@ class IndentedOutput :
 #end IndentedOutput
 
 #+
+# Global data
+#-
+
+cmd_prefix = None
+
+#+
 # Definitions of valid commands.
 #
 # Each command function is passed two arguments: the first is
@@ -98,36 +104,40 @@ class IndentedOutput :
 # that were specified.
 #-
 
-def cmd_help(args, opts) :
-    """shows the user the help description for a command, or for the help
-    command itself if no valid command is given."""
+def cmd_help(args, opts, prefix = "", commands = None) :
+    "shows the user the help description for a command, or for the help" \
+    " command itself if no valid command is given."
+    if commands == None :
+        commands = recognized_commands
+    #end if
     command_candidates = None
     command_match = None
     if len(args) == 1 :
         cmd = args[0]
-        if cmd not in recognized_commands :
+        if cmd not in commands :
             command_match = cmd
             cmd = None
             command_candidates = list \
               (
-                c for c in recognized_commands.keys()
+                c for c in commands.keys()
                 if fnmatch.fnmatch(c, command_match)
               )
         #end if
     else :
         cmd = "help"
-        command_candidates = recognized_commands.keys()
+        command_candidates = commands.keys()
     #end if
     if cmd != None :
         sys.stderr.write \
           (
-                "Usage:\n\n\t%s %s %s\n\n%s.\n"
+                "Usage:\n\n\t%s %s%s %s\n\n%s.\n"
             %
                 (
                     sys.argv[0],
+                    prefix,
                     cmd,
-                    recognized_commands[cmd]["help_usage"],
-                    recognized_commands[cmd]["help_descr"],
+                    commands[cmd]["help_usage"],
+                    commands[cmd]["help_descr"],
                 )
           )
     #end if
@@ -135,9 +145,10 @@ def cmd_help(args, opts) :
         if len(command_candidates) != 0 :
             sys.stderr.write \
               (
-                    "\nValid commands%(matching)s are: %(commands)s.\n"
+                    "\nValid %(sub)scommands%(matching)s are: %(commands)s.\n"
                 %
                     {
+                        "sub" : ("", "sub")[commands != recognized_commands],
                         "matching" :
                             ["", " matching \"%s\"" % command_match][command_match != None],
                         "commands" : ", ".join(sorted(command_candidates)),
@@ -298,6 +309,7 @@ def cmd_chrfromjson(args, opts) :
     chars.save(outfile)
 #end cmd_chrfromjson
 
+help_cmd = "help"
 recognized_commands = \
   {
 # key is command name, value is dictionary with following fields:
@@ -305,6 +317,7 @@ recognized_commands = \
 #     opts -- tuple of long option names. If a name ends in an equal sign, then it takes a value.
 #     multivalued -- optional tuple of option keywords which can occur multiple times
 #     required -- optional tuple of option keywords which must be present
+#     subcmds -- alternative to above, a dictionary of subcommands
 #     help_usage -- used to construct a usage string when giving help for the command.
 #     help_descr -- explanatory text shown when giving help for the command.
 #     action -- the function to invoke to actually perform the command.
@@ -318,79 +331,142 @@ recognized_commands = \
         "help_descr" : "gives help about the specified command",
       },
 
-    "dgntojson" :
+    "dgn" :
       {
-        "args" : 1,
-        "opts" : (),
-        "action" : cmd_dgntojson,
-        "help_usage" : "dgnfile",
-        "help_descr" : "converts a dungeon file to JSON format to stdout",
+        "subcmds" :
+          {
+            "decode" :
+              {
+                "args" : 1,
+                "opts" : (),
+                "action" : cmd_dgntojson,
+                "help_usage" : "dgnfile",
+                "help_descr" : "converts a dungeon file to JSON format to stdout",
+              },
+
+            "encode" :
+              {
+                "args" : 1,
+                "opts" : (),
+                "action" : cmd_dgnfromjson,
+                "help_usage" : "dgnfile",
+                "help_descr" : "generates a dungeon file from JSON format from stdin",
+              },
+          },
+        "help_descr" : "invokes subcommands for managing dungeon level files",
       },
 
-    "dgnfromjson" :
+    "chr" :
       {
-        "args" : 1,
-        "opts" : (),
-        "action" : cmd_dgnfromjson,
-        "help_usage" : "dgnfile",
-        "help_descr" : "generates a dungeon file from JSON format from stdin",
-      },
+        "subcmds" :
+          {
+            "decode" :
+              {
+                "args" : 1,
+                "opts" : (),
+                "action" : cmd_chrtojson,
+                "help_usage" : "chrfile",
+                "help_descr" : "converts a character file to JSON format to stdout",
+              },
 
-    "chrtojson" :
-      {
-        "args" : 1,
-        "opts" : (),
-        "action" : cmd_chrtojson,
-        "help_usage" : "chrfile",
-        "help_descr" : "converts a character file to JSON format to stdout",
-      },
-
-    "chrfromjson" :
-      {
-        "args" : 1,
-        "opts" : (),
-        "action" : cmd_chrfromjson,
-        "help_usage" : "chrfile",
-        "help_descr" : "generates a character file from JSON format from stdin",
+            "encode" :
+              {
+                "args" : 1,
+                "opts" : (),
+                "action" : cmd_chrfromjson,
+                "help_usage" : "chrfile",
+                "help_descr" : "generates a character file from JSON format from stdin",
+              },
+          },
+        "help_descr" : "invokes subcommands for managing character files",
       },
   }
+
+def complete_recognized_commands() :
+    # gives every subcommand a help entry.
+
+    class subcmd_help :
+        # for saving a subcommand context for passing to cmd_help.
+        def __init__(self, prefix, subcmds) :
+            self.prefix = prefix
+            self.subcmds = subcmds
+        #end __init__
+        def __call__(self, args, opts) :
+            cmd_help(args, opts, self.prefix, self.subcmds)
+        #end __call__
+    #end subcmd_help
+
+#begin complete_recognized_commands
+    for cmd in recognized_commands :
+        cmd_entry = recognized_commands[cmd]
+        if "subcmds" in cmd_entry :
+            subhelp = dict(recognized_commands[help_cmd])
+            subhelp["action"] = subcmd_help(cmd + " ", cmd_entry["subcmds"])
+            subhelp["help_usage"] = "[subcmd]"
+            subhelp["help_descr"] = "gives help about the specified subcommand"
+            cmd_entry["subcmds"][help_cmd] = subhelp
+            cmd_entry["help_usage"] = "subcmd"
+        #end if
+    #end for
+#end complete_recognized_commands
+
+complete_recognized_commands()
+del complete_recognized_commands # your work is done
 
 #+
 # Mainline
 #-
 
 def mainline() :
+    global cmd_prefix
     if len(sys.argv) < 2 :
-        raise getopt.GetoptError("need at least one arg, the cmd to execute")
+        raise getopt.GetoptError("need at least one arg, the command to execute")
     #end if
     cmd = sys.argv[1]
     cmd_entry = recognized_commands.get(cmd)
     if cmd_entry == None :
         raise getopt.GetoptError("unrecognized command %s" % repr(cmd))
     #end if
-    (opts_list, args) = getopt.gnu_getopt \
-      (
-        sys.argv[2:],
-        "",
-        cmd_entry["opts"]
-      )
-    if type(cmd_entry["args"]) == tuple :
-        if \
-          (
-                len(args) < cmd_entry["args"][0]
-            or
-                len(args) > cmd_entry["args"][1]
-          ):
+    if "subcmds" in cmd_entry :
+        if len(sys.argv) < 3 :
             raise getopt.GetoptError \
               (
-                "%s command needs %u..%u args" % ((cmd,) + cmd_entry["args"])
+                "%s command needs at least one more arg, the subcommand to execute" % cmd
+              )
+        #end if
+        cmd_rest = sys.argv[3:]
+        subcmd = sys.argv[2]
+        cmd_entry = cmd_entry["subcmds"].get(subcmd)
+        if cmd_entry == None :
+            raise getopt.GetoptError("unrecognized %s subcommand %s" % (cmd, repr(subcmd)))
+        #end if
+        cmd_prefix = "%s %s" % (cmd, subcmd)
+    else :
+        cmd_rest = sys.argv[2:]
+        subcmd = None
+        cmd_prefix = cmd
+    #end if
+    opts_list, args = getopt.gnu_getopt(cmd_rest, "", cmd_entry["opts"])
+    if type(cmd_entry["args"]) == tuple :
+        if (
+                len(cmd_entry["args"]) == 2
+            and
+                (
+                    len(args) < cmd_entry["args"][0]
+                or
+                    len(args) > cmd_entry["args"][1]
+                )
+        ) :
+            raise getopt.GetoptError \
+              (
+                "%s command needs %u..%u args" % ((cmd_prefix,) + cmd_entry["args"])
               )
         #end if
     else :
         if len(args) != cmd_entry["args"] :
             raise getopt.GetoptError \
               (
-                "%s command needs exactly %u args" % (cmd, cmd_entry["args"])
+                "%s command needs exactly %u args" % (cmd_prefix, cmd_entry["args"])
               )
         #end if
     #end if
@@ -414,7 +490,7 @@ def mainline() :
         if len(missing) != 0 :
             raise getopt.GetoptError \
               (
-                "%s command needs option(s) %s" % (cmd, ",".join(tuple(missing)))
+                "%s command needs option(s) %s" % (cmd_prefix, ",".join(tuple(missing)))
               )
         #end if
     #end if
