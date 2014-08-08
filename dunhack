@@ -22,6 +22,7 @@ import json
 import fnmatch
 import getopt
 from dungeon import \
+    DIR, \
     Character, \
     CharacterFile, \
     Dungeon, \
@@ -385,19 +386,35 @@ def cmd_dgnmap(args, opts) :
                 g.stroke()
                 g.set_source_rgb(*map_params.wall_color)
             #end if
+            if south != 0 and east != 0 :
+                if (
+                        (room.get_side(DIR.W) != ROOM_SIDE.OPEN) != (room.neighbour(DIR.N).get_side(DIR.W) != ROOM_SIDE.OPEN)
+                    and
+                        (room.get_side(DIR.N) != ROOM_SIDE.OPEN) != (room.neighbour(DIR.W).get_side(DIR.N) != ROOM_SIDE.OPEN)
+                ) :
+                    # fill in notch in right-angle corner in wall
+                    g.new_path()
+                    g.move_to(east * map_params.room_width - map_params.wall_thickness / 2, south * map_params.room_height - map_params.wall_thickness / 2)
+                    g.rel_line_to(map_params.wall_thickness, 0)
+                    g.rel_line_to(0, map_params.wall_thickness)
+                    g.rel_line_to(- map_params.wall_thickness, 0)
+                    g.close_path()
+                    g.fill()
+                #end if
+            #end if
             if room.special != SPC.NONE :
                 g.move_to((east + 0.5) * map_params.room_width, (south + 0.5) * map_params.room_height)
                 draw_centred_text(g, room.special.name)
             #end if
         #end for
         g.new_path()
-        g.move_to(map_params.room_width * Dungeon.NR_ROOMS_EW, 0)
-        g.rel_line_to(0, map_params.room_height * Dungeon.NR_ROOMS_SN) # easternmost wall
+        g.move_to(map_params.room_width * Dungeon.NR_ROOMS_EW, - map_params.wall_thickness / 2)
+        g.rel_line_to(0, map_params.room_height * Dungeon.NR_ROOMS_SN + map_params.wall_thickness) # easternmost wall
         g.stroke()
     #end for
     g.new_path()
-    g.move_to(0, map_params.room_height * Dungeon.NR_ROOMS_SN)
-    g.rel_line_to(map_params.room_width * Dungeon.NR_ROOMS_EW, 0) # southernmost wall
+    g.move_to(- map_params.wall_thickness / 2, map_params.room_height * Dungeon.NR_ROOMS_SN)
+    g.rel_line_to(map_params.room_width * Dungeon.NR_ROOMS_EW + map_params.wall_thickness, 0) # southernmost wall
     g.stroke()
     pix.flush()
     pix.write_to_png(outfile)
