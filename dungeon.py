@@ -296,21 +296,16 @@ class Dungeon :
             self.treasure_boobytrapped = False
             if random() <= 0.4 :
                 if random() <= 0.5 :
-                    if random() > 0.5 :
-                        self.monster = True
-                    elif random() > 0.05 :
-                        self.monster = True
+                    self.monster = True
+                    if random() <= 0.5 :
                         self.treasure = True
-                    else :
-                        self.monster = True
-                        self.treasure = True
-                        self.treasure_boobytrapped = True
+                        if random() <= 0.05 :
+                            self.treasure_boobytrapped = True
+                        #end if
                     #end if
                 else :
-                    if random() > 0.2 :
-                        self.treasure = True
-                    else :
-                        self.treasure = True
+                    self.treasure = True
+                    if random() <= 0.2 :
                         self.treasure_boobytrapped = True
                    #end if
                 #end if
