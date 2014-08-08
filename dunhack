@@ -248,6 +248,14 @@ def cmd_dgnfromjson(args, opts) :
     dunge.save(outfile)
 #end cmd_dgnfromjson
 
+def cmd_dgnlist(args, opts) :
+    infile = args[0]
+    dungeons = DungeonFile.load(infile)
+    for i, dungeon in enumerate(dungeons) :
+        sys.stdout.write("%3d %s\n" % (i + 1, dungeon.name))
+    #end for
+#end cmd_dgnlist
+
 def cmd_chrtojson(args, opts) :
     infile = args[0]
     characters = CharacterFile.load(infile)
@@ -309,6 +317,16 @@ def cmd_chrfromjson(args, opts) :
     chars.save(outfile)
 #end cmd_chrfromjson
 
+def cmd_chrlist(args, opts) :
+    infile = args[0]
+    characters = CharacterFile.load(infile)
+    for i, character in enumerate(characters) :
+        if character.attributes[Character.UC.ALIVE] :
+            sys.stdout.write("%3d %s\n" % (i + 1, character.name))
+        #end if
+    #end for
+#end cmd_chrlist
+
 help_cmd = "help"
 recognized_commands = \
   {
@@ -352,6 +370,15 @@ recognized_commands = \
                 "help_usage" : "dgnfile",
                 "help_descr" : "generates a dungeon file from JSON format from stdin",
               },
+
+            "list" :
+              {
+                "args" : 1,
+                "opts" : (),
+                "action" : cmd_dgnlist,
+                "help_usage" : "dgnfile",
+                "help_descr": "lists the names of the dungeons in the specified dungeon file",
+              },
           },
         "help_descr" : "invokes subcommands for managing dungeon level files",
       },
@@ -376,6 +403,15 @@ recognized_commands = \
                 "action" : cmd_chrfromjson,
                 "help_usage" : "chrfile",
                 "help_descr" : "generates a character file from JSON format from stdin",
+              },
+
+            "list" :
+              {
+                "args" : 1,
+                "opts" : (),
+                "action" : cmd_chrlist,
+                "help_usage" : "chrfile",
+                "help_descr" : "lists the names of the characters in the specified character file",
               },
           },
         "help_descr" : "invokes subcommands for managing character files",
