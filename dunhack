@@ -102,7 +102,11 @@ def draw_centred_text(g, s) :
     "draws s into Cairo context g using the current position and text settings."
     extents = g.text_extents(s) # tuple: (x_bearing, y_bearing, width, height, x_advance, y_advance)
     x, y = g.get_current_point()
-    g.move_to(x - extents[2] / 2, y)
+    g.move_to \
+      (
+        x - extents[2] / 2,
+        y - extents[3] / 2 - extents[1]
+      )
     g.show_text(s)
 #end draw_centred_text
 
