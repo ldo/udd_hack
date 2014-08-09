@@ -182,7 +182,7 @@ def cmd_help(args, opts, prefix = "", commands = None) :
     #end if
 #end cmd_help
 
-def cmd_dgntojson(args, opts) :
+def cmd_dgndecode(args, opts) :
     infile = args[0]
     dunge = DungeonFile.load(infile)
     out = sys.stdout
@@ -235,9 +235,9 @@ def cmd_dgntojson(args, opts) :
     out2.finish_list("\n")
     out.write("]\n")
     out.flush()
-#end cmd_dgntojson
+#end cmd_dgndecode
 
-def cmd_dgnfromjson(args, opts) :
+def cmd_dgnencode(args, opts) :
     outfile = args[0]
     jdunge = json.load(sys.stdin)
     assert type(jdunge) == list, "expecting list of dungeons"
@@ -268,7 +268,7 @@ def cmd_dgnfromjson(args, opts) :
         dunge.append(d)
     #end for
     dunge.save(outfile)
-#end cmd_dgnfromjson
+#end cmd_dgnencode
 
 def cmd_dgnlist(args, opts) :
     dgnfile = args[0]
@@ -443,7 +443,7 @@ def cmd_dgnspecials(args, opts) :
     #end for
 #end cmd_dgnspecials
 
-def cmd_chrtojson(args, opts) :
+def cmd_chrdecode(args, opts) :
     infile = args[0]
     characters = CharacterFile.load(infile)
     out = sys.stdout
@@ -470,9 +470,9 @@ def cmd_chrtojson(args, opts) :
     out2.finish_list("\n")
     out.write("]\n")
     out.flush()
-#end cmd_chrtojson
+#end cmd_chrdecode
 
-def cmd_chrfromjson(args, opts) :
+def cmd_chrencode(args, opts) :
     outfile = args[0]
     jchars = json.load(sys.stdin)
     assert type(jchars) == list, "expecting list of characters"
@@ -502,7 +502,7 @@ def cmd_chrfromjson(args, opts) :
         chars.append(c)
     #end for
     chars.save(outfile)
-#end cmd_chrfromjson
+#end cmd_chrencode
 
 def cmd_chrlist(args, opts) :
     infile = args[0]
@@ -544,7 +544,7 @@ recognized_commands = \
               {
                 "args" : 1,
                 "opts" : (),
-                "action" : cmd_dgntojson,
+                "action" : cmd_dgndecode,
                 "help_usage" : "dgnfile",
                 "help_descr" : "converts a dungeon file to JSON format to stdout",
               },
@@ -553,7 +553,7 @@ recognized_commands = \
               {
                 "args" : 1,
                 "opts" : (),
-                "action" : cmd_dgnfromjson,
+                "action" : cmd_dgnencode,
                 "help_usage" : "dgnfile",
                 "help_descr" : "generates a dungeon file from JSON format from stdin",
               },
@@ -597,7 +597,7 @@ recognized_commands = \
               {
                 "args" : 1,
                 "opts" : (),
-                "action" : cmd_chrtojson,
+                "action" : cmd_chrdecode,
                 "help_usage" : "chrfile",
                 "help_descr" : "converts a character file to JSON format to stdout",
               },
@@ -606,7 +606,7 @@ recognized_commands = \
               {
                 "args" : 1,
                 "opts" : (),
-                "action" : cmd_chrfromjson,
+                "action" : cmd_chrencode,
                 "help_usage" : "chrfile",
                 "help_descr" : "generates a character file from JSON format from stdin",
               },
