@@ -505,6 +505,17 @@ def cmd_dgnmap(args, opts) :
         scaling = 2.0
     #end map_params
 
+    def fill_notch(x, y) :
+        # fill in notch in right-angle corner in wall
+        g.new_path()
+        g.move_to(x - map_params.wall_thickness / 2, y - map_params.wall_thickness / 2)
+        g.rel_line_to(map_params.wall_thickness, 0)
+        g.rel_line_to(0, map_params.wall_thickness)
+        g.rel_line_to(- map_params.wall_thickness, 0)
+        g.close_path()
+        g.fill()
+    #end fill_notch
+
 #begin cmd_dgnmap
     dgnfile, dgnname, level, outfile = args
     level = int(level)
@@ -595,14 +606,7 @@ def cmd_dgnmap(args, opts) :
                     and
                         (room.get_side(DIR.N) != ROOM_SIDE.OPEN) != (room.neighbour(DIR.W).get_side(DIR.N) != ROOM_SIDE.OPEN)
                 ) :
-                    # fill in notch in right-angle corner in wall
-                    g.new_path()
-                    g.move_to(east * map_params.room_width - map_params.wall_thickness / 2, south * map_params.room_height - map_params.wall_thickness / 2)
-                    g.rel_line_to(map_params.wall_thickness, 0)
-                    g.rel_line_to(0, map_params.wall_thickness)
-                    g.rel_line_to(- map_params.wall_thickness, 0)
-                    g.close_path()
-                    g.fill()
+                    fill_notch(east * map_params.room_width, south * map_params.room_height)
                 #end if
             #end if
             if room.special != SPC.NONE :
@@ -619,6 +623,7 @@ def cmd_dgnmap(args, opts) :
     g.move_to(- map_params.wall_thickness / 2, map_params.room_height * Dungeon.NR_ROOMS_SN)
     g.rel_line_to(map_params.room_width * Dungeon.NR_ROOMS_EW + map_params.wall_thickness, 0) # southernmost wall
     g.stroke()
+    fill_notch(0, 0)
     pix.flush()
     pix.write_to_png(outfile)
 #end cmd_dgnmap
