@@ -231,7 +231,7 @@ class Dungeon :
                 raise ValueError("invalid new value for side")
             #end if
             if dir == DIR.N :
-                if self.l == 0 or self.s > 0 : # allow opening hole in north wall at top level as exit from dungeon
+                if not self.parent.strict or self.l == 0 or self.s > 0 : # allow opening hole in north wall at top level as exit from dungeon
                     self.north_side = val
                 elif val != Dungeon.ROOM_SIDE.WALL :
                     raise ValueError("north side of northernmost room must be wall")
@@ -251,7 +251,7 @@ class Dungeon :
                     raise ValueError("south side of southernmost room must be wall")
                 #end if
             elif dir == DIR.W :
-                if self.l == 0 or self.e > 0 : # allow opening hole in west wall at top level as exit from dungeon
+                if not self.parent.strict or self.l == 0 or self.e > 0 : # allow opening hole in west wall at top level as exit from dungeon
                     self.west_side = val
                 elif val != Dungeon.ROOM_SIDE.WALL :
                     raise ValueError("west side of westernmost room must be wall")
@@ -351,6 +351,11 @@ class Dungeon :
             #end for
         #end for
     #end find_special_rooms
+
+    def __init__(self) :
+        # not for use by caller, use new_empty or decode_bytes instead
+        self.strict = True
+    #end __init__
 
     @classmethod
     def new_empty(cself, name) :

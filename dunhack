@@ -15,6 +15,8 @@
 # Licensed under CC-BY-SA <http://creativecommons.org/licenses/by-sa/4.0/>.
 #-
 
+from enum import \
+    Enum
 import sys
 import cairo
 import colorsys
@@ -238,35 +240,236 @@ def cmd_dgndecode(args, opts) :
 #end cmd_dgndecode
 
 def cmd_dgnencode(args, opts) :
-    outfile = args[0]
-    jdunge = json.load(sys.stdin)
-    assert type(jdunge) == list, "expecting list of dungeons"
-    dunge = DungeonFile()
-    for jd in jdunge :
-        assert type(jd) == dict, "expecting dict to define dungeon"
-        assert "name" in jd and "rooms" in jd and "start" in jd, "dungeon dict must define name, rooms and start"
-        d = Dungeon.new_empty(jd["name"])
-        d.start = jd["start"]
-        jrooms = jd["rooms"]
-        assert len(jrooms) == Dungeon.NR_LEVELS * Dungeon.NR_ROOMS_SN * Dungeon.NR_ROOMS_EW, "expecting 8000 rooms"
-        for l in range(0, Dungeon.NR_LEVELS) :
-            for s in range(0, Dungeon.NR_ROOMS_SN) :
-                for e in range(0, Dungeon.NR_ROOMS_EW) :
-                    jroom = jrooms[l * Dungeon.NR_ROOMS_SN * Dungeon.NR_ROOMS_EW + s * Dungeon.NR_ROOMS_EW + e]
-                    assert jroom["loc"] == [l, s, e], "room coords mismatch"
-                    room = d[l, s, e]
-                    room.west_side = ROOM_SIDE.__members__[jroom["west_side"]]
-                    room.north_side = ROOM_SIDE.__members__[jroom["north_side"]]
-                    if "spc" in jroom :
-                        room.special = SPC.__members__[jroom["spc"]]
-                    else :
-                        room.special = SPC.NONE
-                    #end if
+
+    def from_json(infile, dunge) :
+        # converts a dungeon from my custom JSON format.
+        jdunge = json.load(infile)
+        assert type(jdunge) == list, "expecting list of dungeons"
+        for jd in jdunge :
+            assert type(jd) == dict, "expecting dict to define dungeon"
+            assert "name" in jd and "rooms" in jd and "start" in jd, "dungeon dict must define name, rooms and start"
+            d = Dungeon.new_empty(jd["name"])
+            d.start = jd["start"]
+            jrooms = jd["rooms"]
+            assert len(jrooms) == Dungeon.NR_LEVELS * Dungeon.NR_ROOMS_SN * Dungeon.NR_ROOMS_EW, "expecting 8000 rooms"
+            for l in range(0, Dungeon.NR_LEVELS) :
+                for s in range(0, Dungeon.NR_ROOMS_SN) :
+                    for e in range(0, Dungeon.NR_ROOMS_EW) :
+                        jroom = jrooms[l * Dungeon.NR_ROOMS_SN * Dungeon.NR_ROOMS_EW + s * Dungeon.NR_ROOMS_EW + e]
+                        assert jroom["loc"] == [l, s, e], "room coords mismatch"
+                        room = d[l, s, e]
+                        room.west_side = ROOM_SIDE.__members__[jroom["west_side"]]
+                        room.north_side = ROOM_SIDE.__members__[jroom["north_side"]]
+                        if "spc" in jroom :
+                            room.special = SPC.__members__[jroom["spc"]]
+                        else :
+                            room.special = SPC.NONE
+                        #end if
+                    #end for
                 #end for
             #end for
+            dunge.append(d)
         #end for
+    #end from_json
+
+    def from_ascii(infile, dunge) :
+        # converts a dungeon from the ASCII printout format as found at
+        # <http://www.digital-eel.com/files/dndpage_files/DND.htm>
+        # with the individual level files concatenated together.
+
+        class DgnParseError(RuntimeError) :
+
+            def __init__(self, msg) :
+                super().__init__(msg)
+            #end __init__
+
+        #end DgnParseError
+
+        class STATE(Enum) :
+            # parse states
+            EXPECT_FIRST_TITLE = 0 # dungeon name and level nr for first level
+            EXPECT_TITLE = 1 # dungeon name and level nr for subsequent levels
+            EXPECT_FIRST_EW_WALL = 2 # northenmost E/W wall
+            EXPECT_EW_WALL = 3 # other E/W wall
+            EXPECT_SN_WALL = 4 # S/N wall (3 lines)
+        #end STATE
+
+        ROOM_WIDTH = 6
+
+        def parse_ew_wall(d, level, row, wall) :
+            wall = wall.rstrip()
+            if len(wall) != ROOM_WIDTH * Dungeon.NR_ROOMS_EW + 1 :
+                raise DgnParseError("%d-char line wrong length for E/W wall" % len(wall))
+            #end if
+            if wall[ROOM_WIDTH * Dungeon.NR_ROOMS_EW] != "I" :
+                raise DgnParseError("E/W wall doesn’t end in wall")
+            #end if
+            sides = []
+            for i in range(0, Dungeon.NR_ROOMS_EW) :
+                seg = wall[i * ROOM_WIDTH : (i + 1) * ROOM_WIDTH]
+                if seg == "I     " or seg == "      " :
+                    side = ROOM_SIDE.OPEN
+                elif seg == "IIIIII" :
+                    side = ROOM_SIDE.WALL
+                elif seg == "II---I" :
+                    side = ROOM_SIDE.DOOR
+                elif seg == "II...I" :
+                    side = ROOM_SIDE.RUBBLE
+                else :
+                    raise DgnParseError("can’t figure out E/W wall row %d, col %i: %s" % (row, i, repr(seg)))
+                #end if
+                sides.append(side)
+            #end for
+            if row < Dungeon.NR_ROOMS_SN :
+                for i in range(0, Dungeon.NR_ROOMS_EW) :
+                    d[level, row, i].set_side(DIR.N, sides[i])
+                #end for
+            else :
+                for i in range(0, Dungeon.NR_ROOMS_EW) :
+                    if sides[i] != ROOM_SIDE.WALL :
+                        raise DgnParseError("southernmost side of level %d must be all wall" % level)
+                    #end if
+                #end for
+            #end if
+        #end parse_ew_wall
+
+        def parse_sn_walls(d, level, row, walls) :
+            if walls[0] != walls[2] :
+                raise DgnParseError("S/N walls not symmetrical about centre on level %d" % level)
+            #end if
+            wall1 = walls[0].rstrip()
+            wall2 = walls[1].rstrip()
+            if wall1[ROOM_WIDTH * Dungeon.NR_ROOMS_EW] != "I" or wall2[ROOM_WIDTH * Dungeon.NR_ROOMS_EW] != "I" :
+                raise DgnParseError("S/N wall doesn’t end in wall")
+            #end if
+            for i in range(0, Dungeon.NR_ROOMS_EW) :
+                seg1 = wall1[i * ROOM_WIDTH : (i + 1) * ROOM_WIDTH]
+                seg2 = wall2[i * ROOM_WIDTH : (i + 1) * ROOM_WIDTH]
+                if seg1 == "      " and seg2 == "      " :
+                    side = ROOM_SIDE.OPEN
+                elif seg1 == "I     "  and seg2 == "I     " :
+                    side = ROOM_SIDE.WALL
+                elif seg1 == "I     " and seg2 == "      " :
+                    side = ROOM_SIDE.DOOR
+                elif seg1 == "I     " and seg2 == ":     " :
+                    side = ROOM_SIDE.RUBBLE
+                else :
+                    raise DgnParseError("can’t figure out S/N wall row %d, col %d" % (row, i))
+                #end if
+                d[level, row, i].set_side(DIR.W, side)
+            #end for
+        #end parse_sn_walls
+
+    #begin from_ascii
+        d = None
+        state = STATE.EXPECT_FIRST_TITLE
+        line_nr = 0
+        while True :
+            line = infile.readline()
+            if len(line) == 0 :
+                if state != STATE.EXPECT_FIRST_TITLE :
+                    raise DgnParseError("incomplete dungeon at line %d" % line_nr)
+                #end if
+                break
+            #end if
+            line_nr += 1
+            line = line.rstrip("\r\n").lstrip("\x1a")
+            if state in (STATE.EXPECT_FIRST_TITLE, STATE.EXPECT_TITLE) :
+                line = line.rstrip()
+                if len(line) != 0 :
+                    splitpos = line.rfind("LEVEL")
+                    if splitpos < 0 :
+                        raise DgnParseError("expecting dungeon name and level nr at line %d" % line_nr)
+                    #end if
+                    namestr = line[:splitpos].rstrip()
+                    levelstr = line[splitpos + len("LEVEL"):].lstrip().rstrip()
+                    sys.stderr.write("new level, name(%d) = %s, level = %s\n" % (len(namestr), repr(namestr), levelstr)) # debug
+                    if state == STATE.EXPECT_FIRST_TITLE :
+                        dungeon_name = namestr
+                        d = Dungeon.new_empty(dungeon_name)
+                        d.strict = False # yes, there are non-walls on other than top level
+                        level = 0
+                    else :
+                        if dungeon_name != namestr :
+                            raise DgnParseError \
+                              (
+                                    "dungeon name mismatch, expecting %s, got %s"
+                                %
+                                    (repr(dungeon_name), repr(namestr))
+                              )
+                        #end if
+                    #end if
+                    try :
+                        next_level = int(levelstr)
+                    except ValueError :
+                        raise DgnParseError("not integer dungeon level: %s" % repr(levelstr))
+                    #end if
+                    if next_level != level + 1 :
+                        raise DgnParseError("levels out of sequence: next level number should have been %d" % (level + 1))
+                    #end if
+                    state = STATE.EXPECT_FIRST_EW_WALL
+                #end if
+            elif state == STATE.EXPECT_FIRST_EW_WALL :
+                if len(line) != 0 :
+                    row = 0
+                    parse_ew_wall(d, level, row, line)
+                    walls = []
+                    state = STATE.EXPECT_SN_WALL
+                #end if
+            elif state == STATE.EXPECT_EW_WALL :
+                if len(line) == 0 :
+                    raise DgnParseError("missing E/W wall")
+                #end if
+                row += 1
+                parse_ew_wall(d, level, row, line)
+                if row == Dungeon.NR_ROOMS_SN :
+                    # finished level
+                    level += 1
+                    if level == Dungeon.NR_LEVELS :
+                        # or at this point I could expect another entire dungeon definition
+                        break
+                    state = STATE.EXPECT_TITLE
+                else :
+                    walls = []
+                    state = STATE.EXPECT_SN_WALL
+                #end if
+            elif state == STATE.EXPECT_SN_WALL :
+                if len(line) == 0 :
+                    raise DgnParseError("missing S/N wall line")
+                #end if
+                walls.append(line)
+                if len(walls) == 3 :
+                    parse_sn_walls(d, level, row, walls)
+                    state = STATE.EXPECT_EW_WALL
+                 #end if
+            #end if
+        #end while
         dunge.append(d)
-    #end for
+    #end from_ascii
+
+    formats = \
+        {
+            "json" : from_json,
+            "ascii" : from_ascii,
+        }
+
+#begin cmd_dgnencode
+    outfile = args[0]
+    encode = from_json # default
+    if "format" in opts :
+        format = opts["format"]
+        if format not in formats :
+            raise getopt.GetoptError \
+              (
+                    "unrecognized input format %s -- must be one of (%s)"
+                %
+                    (format, ",".join(k for k in formats))
+              )
+        #end if
+        encode = formats[format]
+    #end if
+    dunge = DungeonFile()
+    encode(sys.stdin, dunge)
     dunge.save(outfile)
 #end cmd_dgnencode
 
@@ -552,9 +755,9 @@ recognized_commands = \
             "encode" :
               {
                 "args" : 1,
-                "opts" : (),
+                "opts" : ("format=",),
                 "action" : cmd_dgnencode,
-                "help_usage" : "dgnfile",
+                "help_usage" : "[--format=format] dgnfile",
                 "help_descr" : "generates a dungeon file from JSON format from stdin",
               },
 
