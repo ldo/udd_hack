@@ -584,7 +584,7 @@ def cmd_dgnmap(args, opts) :
                     g.rel_line_to(map_params.room_width * (1 - map_params.door_gap) / 2, 0)
                 elif room.north_side == ROOM_SIDE.RUBBLE :
                     g.set_source_rgb(*map_params.rubble_color)
-                    g.rel_line_to(0, map_params.room_width)
+                    g.rel_line_to(map_params.room_width, 0)
                 #end if
                 g.stroke()
                 g.set_source_rgb(*map_params.wall_color)
