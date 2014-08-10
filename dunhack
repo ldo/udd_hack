@@ -537,15 +537,15 @@ def cmd_dgnmap(args, opts) :
     g.select_font_face("sans-serif")
     g.set_font_size(map_params.title_size)
     g.move_to(map_params.room_width * Dungeon.NR_ROOMS_EW / 2, map_params.title_y)
-    draw_centred_text(g, "%s — level %d" % (dgnname, level))
+    draw_centred_text(g, "%s — level %d" % (dgnname, level + 1))
     g.set_source_rgb(*map_params.grid_color)
     for south in range(0, Dungeon.NR_ROOMS_SN) :
         g.move_to(map_params.row_coords_x, (south + 0.5) * map_params.room_height)
-        draw_centred_text(g, "%d" % south)
+        draw_centred_text(g, "%d" % (south + 1))
     #end for
     for east in range(0, Dungeon.NR_ROOMS_EW) :
         g.move_to((east + 0.5) * map_params.room_width, map_params.col_coords_y)
-        draw_centred_text(g, "%d" % east)
+        draw_centred_text(g, "%d" % (east + 1))
     #end for
     g.set_line_width(map_params.grid_thickness)
     g.new_path()
