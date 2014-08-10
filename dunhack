@@ -17,6 +17,8 @@
 
 from enum import \
     Enum
+from functools import \
+    reduce
 import sys
 import os
 import cairo
@@ -755,6 +757,80 @@ def cmd_dgnspecials(args, opts) :
     #end for
 #end cmd_dgnspecials
 
+def cmd_dgnlint(args, opts) :
+    dgnfile = args[0]
+    dgnname = args[1]
+    dungeons = DungeonFile.load(dgnfile)
+    try :
+        dungeon = dungeons[dgnname]
+    except KeyError :
+        raise getopt.GetoptError("no such dungeon %s in file %s" % (repr(dgnname), dgnfile))
+    #end try
+    if dungeon.start != None :
+        reachable = dungeon[dungeon.start].find_connected(follow_stairs = True)
+        unreachable_levels = set()
+        for level in range(0, Dungeon.NR_LEVELS) :
+            if reduce(lambda a, b : a and b, (dungeon[level, s, e] not in reachable for s in range(0, Dungeon.NR_ROOMS_SN) for e in range(0, Dungeon.NR_ROOMS_EW)), True) :
+                unreachable_levels.add(level)
+            #end if
+        #end for
+        if len(unreachable_levels) != 0 :
+            sys.stderr.write \
+              (
+                    "Completely unreachable levels: %s\n"
+                %
+                    ",".join(str(i) for i in sorted(unreachable_levels))
+              )
+        #end if
+    else :
+        sys.stderr.write("dungeon is closed for repairs.\n")
+    #end if
+    reported = set()
+    for room in dungeon.find_special_rooms(SPC.DNS) :
+        if room not in reported :
+            other_room = room.neighbour(DIR.D)
+            if other_room == None or other_room.special not in (SPC.UDS, SPC.UPS) :
+                sys.stderr.write("room [%d,%d,%d] has down staircase with no corresponding up staircase below.\n" % (room.l, room.s, room.e))
+                reported.add(room)
+            #end if
+        #end if
+    #end for
+    for room in dungeon.find_special_rooms(SPC.UPS) :
+        if room not in reported :
+            other_room = room.neighbour(DIR.U)
+            if other_room == None or other_room.special not in (SPC.UDS, SPC.DNS) :
+                sys.stderr.write("room [%d,%d,%d] has up staircase with no corresponding down staircase above.\n" % (room.l, room.s, room.e))
+                reported.add(room)
+            #end if
+        #end if
+    #end for
+    for room in dungeon.find_special_rooms(SPC.UDS) :
+        if room not in reported :
+            other_room = room.neighbour(DIR.D)
+            if other_room == None or other_room.special not in (SPC.UDS, SPC.UPS) :
+                sys.stderr.write("room [%d,%d,%d] has up/down staircase with no corresponding up staircase below.\n" % (room.l, room.s, room.e))
+                reported.add(room)
+            #end if
+            other_room = room.neighbour(DIR.U)
+            if other_room == None or other_room.special not in (SPC.UDS, SPC.DNS) :
+                sys.stderr.write("room [%d,%d,%d] has up/down staircase with no corresponding down staircase above.\n" % (room.l, room.s, room.e))
+                reported.add(room)
+            #end if
+        #end if
+    #end for
+    nr_orbs = \
+        (
+            len(list(dungeon.find_special_rooms(SPC.DGN2)))
+        +
+            len(list(dungeon.find_special_rooms(SPC.ORB)))
+        )
+    if nr_orbs == 0 :
+        sys.stderr.write("dungeon has no Orb.\n")
+    elif nr_orbs > 1 :
+        sys.stderr.write("dungeon has more than one Orb.\n")
+    #end if
+#end cmd_dgnlint
+
 def cmd_chrdecode(args, opts) :
     infile = args[0]
     characters = CharacterFile.load(infile)
@@ -868,6 +944,15 @@ recognized_commands = \
                 "action" : cmd_dgnencode,
                 "help_usage" : "[--format=format] dgnfile",
                 "help_descr" : "generates a dungeon file from JSON format from stdin",
+              },
+
+            "lint" :
+              {
+                "args" : 2,
+                "opts" : (),
+                "action" : cmd_dgnlint,
+                "help_usage" : "dgnfile dgnname",
+                "help_descr" : "does some basic checks on the consistency of a dungeon",
               },
 
             "list" :
