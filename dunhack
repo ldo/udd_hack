@@ -103,7 +103,8 @@ class IndentedOutput :
 #-
 
 def draw_centred_text(g, s) :
-    "draws s into Cairo context g using the current position and text settings."
+    "draws s into Cairo context g horizontally and vertically centred about" \
+    " the current position, using the current text settings."
     extents = g.text_extents(s) # tuple: (x_bearing, y_bearing, width, height, x_advance, y_advance)
     x, y = g.get_current_point()
     g.move_to \
@@ -499,9 +500,13 @@ def cmd_dgnmap(args, opts) :
 
         bg_color = colorsys.hsv_to_rgb(0, 0, 1)
         text_color = colorsys.hsv_to_rgb(0, 0, 0)
+
         wall_color = colorsys.hsv_to_rgb(0, 0, 0)
         grid_color = colorsys.hsv_to_rgb(0.55, 0.4, 0.8)
         rubble_color = colorsys.hsv_to_rgb(0, 0, 0.7)
+        access_color = colorsys.hsv_to_rgb(0.35, 0.3, 0.9)
+        # reachable_color = colorsys.hsv_to_rgb(0.35, 0.1, 0.95)
+        unreachable_color = colorsys.hsv_to_rgb(0.1, 0.1, 0.95)
 
         scaling = 2.0 # for better bitmap resolution
     #end map_params
@@ -516,6 +521,19 @@ def cmd_dgnmap(args, opts) :
         g.close_path()
         g.fill()
     #end fill_notch
+
+    def fill_room(s, e, color) :
+        x = e * map_params.room_width
+        y = s * map_params.room_height
+        g.new_path()
+        g.set_source_rgb(*color)
+        g.move_to(x, y)
+        g.line_to(x + map_params.room_width, y)
+        g.line_to(x + map_params.room_width, y + map_params.room_height)
+        g.line_to(x, y + map_params.room_height)
+        g.close_path()
+        g.fill()
+    #end fill_room
 
     formats = \
         {
@@ -550,6 +568,7 @@ def cmd_dgnmap(args, opts) :
     else :
         levels = (int(levels),)
     #end if
+    show_reachable = "show-reachable" in opts
     ext = os.path.splitext(outfile)[1]
     if ext in formats :
         format = formats[ext]
@@ -573,6 +592,11 @@ def cmd_dgnmap(args, opts) :
         g.scale(map_params.scaling, map_params.scaling)
     #end if
     g.translate(map_params.map_padding[3], map_params.map_padding[0])
+    if show_reachable and dungeon.start != None :
+        reachable = dungeon[dungeon.start].find_connected(follow_stairs = True)
+    else :
+        reachable = None
+    #end if
     for level in range(0, Dungeon.NR_LEVELS) :
         if level in levels :
             g.set_source_rgb(*map_params.bg_color)
@@ -582,6 +606,23 @@ def cmd_dgnmap(args, opts) :
             g.set_font_size(map_params.title_size)
             g.move_to(map_params.room_width * Dungeon.NR_ROOMS_EW / 2, map_params.title_y)
             draw_centred_text(g, "%s — level %d" % (dgnname, level + 1))
+            if show_reachable :
+                for south in range(0, Dungeon.NR_ROOMS_SN) :
+                    for east in range(0, Dungeon.NR_ROOMS_EW) :
+                        room = dungeon[level, south, east]
+                        if room in reachable :
+                            if room.special in (SPC.UPS, SPC.UDS, SPC.DNS) :
+                                fill_room(south, east, map_params.access_color)
+                            #end if
+                        else :
+                             fill_room(south, east, map_params.unreachable_color)
+                        #end if
+                    #end for
+                #end for
+                if dungeon.start != None and level == dungeon.start[0] :
+                    fill_room(dungeon.start[1], dungeon.start[2], map_params.access_color)
+                #end if
+            #end if
             g.set_source_rgb(*map_params.grid_color)
             for south in range(0, Dungeon.NR_ROOMS_SN) :
                 g.move_to(map_params.row_coords_x, (south + 0.5) * map_params.room_height)
@@ -833,7 +874,7 @@ recognized_commands = \
             "map" :
               {
                 "args" : 4,
-                "opts" : (),
+                "opts" : ("show-reachable",),
                 "action" : cmd_dgnmap,
                 "help_usage" : "dgnfile dgnname level outfile",
                 "help_descr" :
