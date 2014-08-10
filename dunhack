@@ -507,6 +507,7 @@ def cmd_dgnmap(args, opts) :
         access_color = colorsys.hsv_to_rgb(0.35, 0.3, 0.9)
         # reachable_color = colorsys.hsv_to_rgb(0.35, 0.1, 0.95)
         unreachable_color = colorsys.hsv_to_rgb(0.1, 0.1, 0.95)
+        prize_color = colorsys.hsv_to_rgb(0.05, 0.9, 0.8)
 
         scaling = 2.0 # for better bitmap resolution
     #end map_params
@@ -643,7 +644,6 @@ def cmd_dgnmap(args, opts) :
                 g.rel_line_to(0, map_params.room_height * Dungeon.NR_ROOMS_SN)
             #end for
             g.stroke()
-            g.set_source_rgb(*map_params.wall_color)
             g.set_line_width(map_params.wall_thickness)
             g.set_font_size(map_params.special_size)
             if dungeon.start != None and level == dungeon.start[0] :
@@ -656,6 +656,7 @@ def cmd_dgnmap(args, opts) :
                     if room.west_side != ROOM_SIDE.OPEN :
                         g.new_path()
                         g.move_to(east * map_params.room_width, south * map_params.room_height)
+                        g.set_source_rgb(*map_params.wall_color)
                         if room.west_side == ROOM_SIDE.WALL :
                             g.rel_line_to(0, map_params.room_height)
                         elif room.west_side == ROOM_SIDE.DOOR :
@@ -667,11 +668,11 @@ def cmd_dgnmap(args, opts) :
                             g.rel_line_to(0, map_params.room_height)
                         #end if
                         g.stroke()
-                        g.set_source_rgb(*map_params.wall_color)
                     #end if
                     if room.north_side != ROOM_SIDE.OPEN :
                         g.new_path()
                         g.move_to(east * map_params.room_width, south * map_params.room_height)
+                        g.set_source_rgb(*map_params.wall_color)
                         if room.north_side == ROOM_SIDE.WALL :
                             g.rel_line_to(map_params.room_width, 0)
                         elif room.north_side == ROOM_SIDE.DOOR :
@@ -683,7 +684,6 @@ def cmd_dgnmap(args, opts) :
                             g.rel_line_to(map_params.room_width, 0)
                         #end if
                         g.stroke()
-                        g.set_source_rgb(*map_params.wall_color)
                     #end if
                     if south != 0 and east != 0 :
                         if (
@@ -691,20 +691,27 @@ def cmd_dgnmap(args, opts) :
                             and
                                 (room.get_side(DIR.N) != ROOM_SIDE.OPEN) != (room.neighbour(DIR.W).get_side(DIR.N) != ROOM_SIDE.OPEN)
                         ) :
+                            g.set_source_rgb(*map_params.wall_color)
                             fill_notch(east * map_params.room_width, south * map_params.room_height)
                         #end if
                     #end if
                     if room.special != SPC.NONE :
                         g.move_to((east + 0.5) * map_params.room_width, (south + 0.5) * map_params.room_height)
+                        g.set_source_rgb \
+                          (
+                            *((map_params.text_color, map_params.prize_color)[room.special in (SPC.DGN2, SPC.ORB)])
+                          )
                         draw_centred_text(g, room.special.name)
                     #end if
                 #end for
                 g.new_path()
+                g.set_source_rgb(*map_params.wall_color)
                 g.move_to(map_params.room_width * Dungeon.NR_ROOMS_EW, - map_params.wall_thickness / 2)
                 g.rel_line_to(0, map_params.room_height * Dungeon.NR_ROOMS_SN + map_params.wall_thickness) # easternmost wall
                 g.stroke()
             #end for
             g.new_path()
+            g.set_source_rgb(*map_params.wall_color)
             g.move_to(- map_params.wall_thickness / 2, map_params.room_height * Dungeon.NR_ROOMS_SN)
             g.rel_line_to(map_params.room_width * Dungeon.NR_ROOMS_EW + map_params.wall_thickness, 0) # southernmost wall
             g.stroke()
