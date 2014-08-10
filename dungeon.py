@@ -290,19 +290,43 @@ class Dungeon :
         def find_connected(self, follow_stairs = False) :
             "finds all rooms that can be accessed to from this one just by simple movements" \
             " (no teleport or transporter or spells), optionally going up/down stairs" \
-            " as well."
-
-            processing = []
+            " as well. This is not an iterator, it returns the whole set at once, since" \
+            " it needs to check for membership in that set to skip rooms already processed."
+            # use non-recursive algorithm to avoid overflowing Python stack.
             result = set()
-
-            def find_connected_from(room) :
-                processing.append(room)
-                for \
-                    direction \
-                in \
-                    (DIR.N, DIR.E, DIR.S, DIR.W) + ((), (DIR.U, DIR.D))[follow_stairs] \
-                :
-                    neighbour = None
+            processing = set() # rooms currently on stack, for easy membership test
+            stack = []
+            neighbour = self
+            curdirns = None
+            while True :
+                if neighbour != None :
+                    if neighbour not in result :
+                        result.add(neighbour)
+                        room = neighbour
+                        curdirns = iter \
+                          (
+                            (DIR.N, DIR.E, DIR.S, DIR.W) + ((), (DIR.U, DIR.D))[follow_stairs]
+                          )
+                        stack.append \
+                          (
+                            {
+                                "room" : room,
+                                "directions" : curdirns,
+                            }
+                          )
+                        processing.add(room)
+                    #end if
+                elif curdirns == None :
+                    processing.remove(stack[-1]["room"])
+                    stack.pop()
+                    if len(stack) == 0 :
+                        break # all done
+                    room = stack[-1]["room"]
+                    curdirns = stack[-1]["directions"]
+                #end if
+                direction = next(curdirns, None)
+                neighbour = None # to begin with
+                if direction != None :
                     if direction == DIR.U :
                         if room.special in (self.parent.SPC.UPS, self.parent.SPC.UDS) :
                             neighbour = room.neighbour(DIR.U)
@@ -314,16 +338,10 @@ class Dungeon :
                     elif room.passable(direction) :
                         neighbour = room.neighbour(direction)
                     #end if
-                    if neighbour != None and neighbour not in result and neighbour not in processing :
-                        result.add(neighbour)
-                        find_connected_from(neighbour)
-                    #end if
-                #end for
-                processing.pop()
-            #end find_connected_from
-
-        #begin find_connected
-            find_connected_from(self)
+                else :
+                    curdirns = None # exhausted all possible neighbours of this room
+                #end if
+            #end while
             return \
                 result
         #end find_connected
