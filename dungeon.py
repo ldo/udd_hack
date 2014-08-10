@@ -265,7 +265,7 @@ class Dungeon :
             "can player leave room in specified direction."
             result = False # to begin with
             if dir == DIR.N :
-                result = self.s > 0 and self.north_side.passable()
+                result = self.north_side.passable()
             elif dir == DIR.E :
                 neighbour = self.neighbour(dir)
                 if neighbour != None :
@@ -277,7 +277,7 @@ class Dungeon :
                     result = neighbour.north_side.passable()
                 #end if
             elif dir == DIR.W :
-                result = self.e > 0 and self.west_side.passable()
+                result = self.west_side.passable()
             elif dir == DIR.U :
                 pass # elevator?
             elif dir == DIR.D :
