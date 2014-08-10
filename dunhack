@@ -487,7 +487,7 @@ def cmd_dgnmap(args, opts) :
         room_width = 20.0
         room_height = 20.0
         grid_thickness = 0.5
-        wall_thickness = 4.0
+        wall_thickness = 2.0
         door_gap = 1 / 3
         map_padding = (40.0, 12.0, 12.0, 24.0) # top, right, bottom, left à la CSS
         title_y = -25.0
