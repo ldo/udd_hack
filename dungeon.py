@@ -287,6 +287,47 @@ class Dungeon :
                 result
         #end passable
 
+        def find_connected(self, follow_stairs = False) :
+            "finds all rooms that can be accessed to from this one just by simple movements" \
+            " (no teleport or transporter or spells), optionally going up/down stairs" \
+            " as well."
+
+            processing = []
+            result = set()
+
+            def find_connected_from(room) :
+                processing.append(room)
+                for \
+                    direction \
+                in \
+                    (DIR.N, DIR.E, DIR.S, DIR.W) + ((), (DIR.U, DIR.D))[follow_stairs] \
+                :
+                    neighbour = None
+                    if direction == DIR.U :
+                        if room.special in (self.parent.SPC.UPS, self.parent.SPC.UDS) :
+                            neighbour = room.neighbour(DIR.U)
+                        #end if
+                    elif direction == DIR.D :
+                        if room.special in (self.parent.SPC.DNS, self.parent.SPC.UDS) :
+                            neighbour = room.neighbour(DIR.D)
+                        #end if
+                    elif room.passable(direction) :
+                        neighbour = room.neighbour(direction)
+                    #end if
+                    if neighbour != None and neighbour not in result and neighbour not in processing :
+                        result.add(neighbour)
+                        find_connected_from(neighbour)
+                    #end if
+                #end for
+                processing.pop()
+            #end find_connected_from
+
+        #begin find_connected
+            find_connected_from(self)
+            return \
+                result
+        #end find_connected
+
         def populate(self) :
             "randomly sets the dynamic contents for the room, using the same" \
             " probabilities as udd."
