@@ -623,7 +623,13 @@ def cmd_dgnmap(args, opts) :
     g.move_to(- map_params.wall_thickness / 2, map_params.room_height * Dungeon.NR_ROOMS_SN)
     g.rel_line_to(map_params.room_width * Dungeon.NR_ROOMS_EW + map_params.wall_thickness, 0) # southernmost wall
     g.stroke()
-    fill_notch(0, 0)
+    if (
+            dungeon[level, 0, 0].get_side(DIR.W) != ROOM_SIDE.OPEN
+        or
+            dungeon[level, 0, 0].get_side(DIR.N) != ROOM_SIDE.OPEN
+    ) :
+        fill_notch(0, 0)
+    #end if
     pix.flush()
     pix.write_to_png(outfile)
 #end cmd_dgnmap
