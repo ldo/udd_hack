@@ -352,6 +352,25 @@ class Dungeon :
         #end for
     #end find_special_rooms
 
+    def find_open_rooms(self) :
+        "finds rooms accessible from outside."
+        for l in range(0, Dungeon.NR_LEVELS) :
+            if self.rooms[l][0][0].passable(DIR.W) or self.rooms[l][0][0].passable(DIR.N) :
+                yield self.rooms[l][0][0]
+            #end if
+            for s in range(1, Dungeon.NR_ROOMS_SN) :
+                if self.rooms[l][s][0].passable(DIR.W) :
+                    yield self.rooms[l][s][0]
+                #end if
+            #end for
+            for e in range(1, Dungeon.NR_ROOMS_EW) :
+                if self.rooms[l][0][e].passable(DIR.N) :
+                    self.rooms[l][0][e]
+                #end if
+            #end for
+        #end for
+    #end find_open_rooms
+
     def __init__(self) :
         # not for use by caller, use new_empty or decode_bytes instead
         self.strict = True
