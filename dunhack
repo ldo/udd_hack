@@ -648,6 +648,7 @@ def cmd_dgnmap(args, opts) :
             g.set_font_size(map_params.special_size)
             if dungeon.start != None and level == dungeon.start[0] :
                 g.move_to((dungeon.start[2] + 0.5) * map_params.room_width, (dungeon.start[1] + 0.5) * map_params.room_height)
+                g.set_source_rgb(*map_params.text_color)
                 draw_centred_text(g, "X")
             #end if
             for south in range(0, Dungeon.NR_ROOMS_SN) :
