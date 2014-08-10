@@ -18,6 +18,7 @@
 from enum import \
     Enum
 import sys
+import os
 import cairo
 import colorsys
 import json
@@ -488,7 +489,7 @@ def cmd_dgnmap(args, opts) :
         room_height = 20.0
         grid_thickness = 0.5
         wall_thickness = 2.0
-        door_gap = 1 / 3
+        door_gap = 1 / 3 # proportion of room width/height to leave for door
         map_padding = (40.0, 12.0, 12.0, 24.0) # top, right, bottom, left à la CSS
         title_y = -25.0
         title_size = 10.0
@@ -502,7 +503,7 @@ def cmd_dgnmap(args, opts) :
         grid_color = colorsys.hsv_to_rgb(0.55, 0.4, 0.8)
         rubble_color = colorsys.hsv_to_rgb(0, 0, 0.7)
 
-        scaling = 2.0
+        scaling = 2.0 # for better bitmap resolution
     #end map_params
 
     def fill_notch(x, y) :
@@ -516,122 +517,170 @@ def cmd_dgnmap(args, opts) :
         g.fill()
     #end fill_notch
 
+    formats = \
+        {
+            ".pdf" :
+                {
+                    "create" : cairo.PDFSurface,
+                    "multilevels" : True,
+                    "scaling" : False,
+                    "save" : None,
+                },
+            ".png" :
+                {
+                    "create" : cairo.ImageSurface,
+                    "multilevels" : False,
+                    "scaling" : True,
+                    "save" : "write_to_png",
+                },
+            ".ps" :
+                {
+                    "create" : cairo.PSSurface,
+                    "multilevels" : True,
+                    "scaling" : False,
+                    "save" : None,
+                },
+        }
+
 #begin cmd_dgnmap
-    dgnfile, dgnname, level, outfile = args
-    level = int(level)
+    dgnfile, dgnname, levels, outfile = args
+    if levels.lower() == "all" :
+        levels = set(range(0, Dungeon.NR_LEVELS))
+        # can support more granular options in future
+    else :
+        levels = (int(levels),)
+    #end if
+    ext = os.path.splitext(outfile)[1]
+    if ext in formats :
+        format = formats[ext]
+    else :
+        raise getopt.GetoptError("unrecognized output extension %s" % ext)
+    #end if
+    if not format["multilevels"] and len(levels) != 1 :
+        raise getopt.GetoptError("%s format only allows one level at a time" % ext)
+    #end if
     dungeons = DungeonFile.load(dgnfile)
     dungeon = dungeons[dgnname]
-    # option to specify pixel density?
-    pix = cairo.ImageSurface \
+    # Cairo doesn't have way to specify pixel density?
+    pix = format["create"] \
       (
-        cairo.FORMAT_RGB24, # format
-        round((map_params.room_width * Dungeon.NR_ROOMS_EW + map_params.map_padding[1] + map_params.map_padding[3]) * map_params.scaling), # width
-        round((map_params.room_height * Dungeon.NR_ROOMS_SN + map_params.map_padding[0] + map_params.map_padding[2]) * map_params.scaling) # height
+        (outfile, cairo.FORMAT_RGB24)[format["scaling"]],
+        round((map_params.room_width * Dungeon.NR_ROOMS_EW + map_params.map_padding[1] + map_params.map_padding[3]) * (1, map_params.scaling)[format["scaling"]]), # width
+        round((map_params.room_height * Dungeon.NR_ROOMS_SN + map_params.map_padding[0] + map_params.map_padding[2]) * (1, map_params.scaling)[format["scaling"]]) # height
       )
     g = cairo.Context(pix)
-    g.scale(map_params.scaling, map_params.scaling)
+    if format["scaling"] :
+        g.scale(map_params.scaling, map_params.scaling)
+    #end if
     g.translate(map_params.map_padding[3], map_params.map_padding[0])
-    g.set_source_rgb(*map_params.bg_color)
-    g.paint()
-    g.set_source_rgb(*map_params.text_color)
-    g.select_font_face("sans-serif")
-    g.set_font_size(map_params.title_size)
-    g.move_to(map_params.room_width * Dungeon.NR_ROOMS_EW / 2, map_params.title_y)
-    draw_centred_text(g, "%s — level %d" % (dgnname, level + 1))
-    g.set_source_rgb(*map_params.grid_color)
-    for south in range(0, Dungeon.NR_ROOMS_SN) :
-        g.move_to(map_params.row_coords_x, (south + 0.5) * map_params.room_height)
-        draw_centred_text(g, "%d" % (south + 1))
-    #end for
-    for east in range(0, Dungeon.NR_ROOMS_EW) :
-        g.move_to((east + 0.5) * map_params.room_width, map_params.col_coords_y)
-        draw_centred_text(g, "%d" % (east + 1))
-    #end for
-    g.set_line_width(map_params.grid_thickness)
-    g.new_path()
-    for south in range(0, Dungeon.NR_ROOMS_SN + 1) :
-        g.move_to(0, map_params.room_height * south)
-        g.rel_line_to(map_params.room_width * Dungeon.NR_ROOMS_EW, 0)
-    #end for
-    for east in range(0, Dungeon.NR_ROOMS_EW + 1) :
-        g.move_to(map_params.room_width * east, 0)
-        g.rel_line_to(0, map_params.room_height * Dungeon.NR_ROOMS_SN)
-    #end for
-    g.stroke()
-    g.set_source_rgb(*map_params.wall_color)
-    g.set_line_width(map_params.wall_thickness)
-    g.set_font_size(map_params.special_size)
-    if dungeon.start != None and level == dungeon.start[0] :
-        g.move_to((dungeon.start[2] + 0.5) * map_params.room_width, (dungeon.start[1] + 0.5) * map_params.room_height)
-        draw_centred_text(g, "X")
-    #end if
-    for south in range(0, Dungeon.NR_ROOMS_SN) :
-        for east in range(0, Dungeon.NR_ROOMS_EW) :
-            room = dungeon[level, south, east]
-            if room.west_side != ROOM_SIDE.OPEN :
+    for level in range(0, Dungeon.NR_LEVELS) :
+        if level in levels :
+            g.set_source_rgb(*map_params.bg_color)
+            g.paint()
+            g.set_source_rgb(*map_params.text_color)
+            g.select_font_face("sans-serif")
+            g.set_font_size(map_params.title_size)
+            g.move_to(map_params.room_width * Dungeon.NR_ROOMS_EW / 2, map_params.title_y)
+            draw_centred_text(g, "%s — level %d" % (dgnname, level + 1))
+            g.set_source_rgb(*map_params.grid_color)
+            for south in range(0, Dungeon.NR_ROOMS_SN) :
+                g.move_to(map_params.row_coords_x, (south + 0.5) * map_params.room_height)
+                draw_centred_text(g, "%d" % (south + 1))
+            #end for
+            for east in range(0, Dungeon.NR_ROOMS_EW) :
+                g.move_to((east + 0.5) * map_params.room_width, map_params.col_coords_y)
+                draw_centred_text(g, "%d" % (east + 1))
+            #end for
+            g.set_line_width(map_params.grid_thickness)
+            g.new_path()
+            for south in range(0, Dungeon.NR_ROOMS_SN + 1) :
+                g.move_to(0, map_params.room_height * south)
+                g.rel_line_to(map_params.room_width * Dungeon.NR_ROOMS_EW, 0)
+            #end for
+            for east in range(0, Dungeon.NR_ROOMS_EW + 1) :
+                g.move_to(map_params.room_width * east, 0)
+                g.rel_line_to(0, map_params.room_height * Dungeon.NR_ROOMS_SN)
+            #end for
+            g.stroke()
+            g.set_source_rgb(*map_params.wall_color)
+            g.set_line_width(map_params.wall_thickness)
+            g.set_font_size(map_params.special_size)
+            if dungeon.start != None and level == dungeon.start[0] :
+                g.move_to((dungeon.start[2] + 0.5) * map_params.room_width, (dungeon.start[1] + 0.5) * map_params.room_height)
+                draw_centred_text(g, "X")
+            #end if
+            for south in range(0, Dungeon.NR_ROOMS_SN) :
+                for east in range(0, Dungeon.NR_ROOMS_EW) :
+                    room = dungeon[level, south, east]
+                    if room.west_side != ROOM_SIDE.OPEN :
+                        g.new_path()
+                        g.move_to(east * map_params.room_width, south * map_params.room_height)
+                        if room.west_side == ROOM_SIDE.WALL :
+                            g.rel_line_to(0, map_params.room_height)
+                        elif room.west_side == ROOM_SIDE.DOOR :
+                            g.rel_line_to(0, map_params.room_height * (1 - map_params.door_gap) / 2)
+                            g.rel_move_to(0, map_params.room_height * map_params.door_gap)
+                            g.rel_line_to(0, map_params.room_height * (1 - map_params.door_gap) / 2)
+                        elif room.west_side == ROOM_SIDE.RUBBLE :
+                            g.set_source_rgb(*map_params.rubble_color)
+                            g.rel_line_to(0, map_params.room_height)
+                        #end if
+                        g.stroke()
+                        g.set_source_rgb(*map_params.wall_color)
+                    #end if
+                    if room.north_side != ROOM_SIDE.OPEN :
+                        g.new_path()
+                        g.move_to(east * map_params.room_width, south * map_params.room_height)
+                        if room.north_side == ROOM_SIDE.WALL :
+                            g.rel_line_to(map_params.room_width, 0)
+                        elif room.north_side == ROOM_SIDE.DOOR :
+                            g.rel_line_to(map_params.room_width * (1 - map_params.door_gap) / 2, 0)
+                            g.rel_move_to(map_params.room_width * map_params.door_gap, 0)
+                            g.rel_line_to(map_params.room_width * (1 - map_params.door_gap) / 2, 0)
+                        elif room.north_side == ROOM_SIDE.RUBBLE :
+                            g.set_source_rgb(*map_params.rubble_color)
+                            g.rel_line_to(map_params.room_width, 0)
+                        #end if
+                        g.stroke()
+                        g.set_source_rgb(*map_params.wall_color)
+                    #end if
+                    if south != 0 and east != 0 :
+                        if (
+                                (room.get_side(DIR.W) != ROOM_SIDE.OPEN) != (room.neighbour(DIR.N).get_side(DIR.W) != ROOM_SIDE.OPEN)
+                            and
+                                (room.get_side(DIR.N) != ROOM_SIDE.OPEN) != (room.neighbour(DIR.W).get_side(DIR.N) != ROOM_SIDE.OPEN)
+                        ) :
+                            fill_notch(east * map_params.room_width, south * map_params.room_height)
+                        #end if
+                    #end if
+                    if room.special != SPC.NONE :
+                        g.move_to((east + 0.5) * map_params.room_width, (south + 0.5) * map_params.room_height)
+                        draw_centred_text(g, room.special.name)
+                    #end if
+                #end for
                 g.new_path()
-                g.move_to(east * map_params.room_width, south * map_params.room_height)
-                if room.west_side == ROOM_SIDE.WALL :
-                    g.rel_line_to(0, map_params.room_height)
-                elif room.west_side == ROOM_SIDE.DOOR :
-                    g.rel_line_to(0, map_params.room_height * (1 - map_params.door_gap) / 2)
-                    g.rel_move_to(0, map_params.room_height * map_params.door_gap)
-                    g.rel_line_to(0, map_params.room_height * (1 - map_params.door_gap) / 2)
-                elif room.west_side == ROOM_SIDE.RUBBLE :
-                    g.set_source_rgb(*map_params.rubble_color)
-                    g.rel_line_to(0, map_params.room_height)
-                #end if
+                g.move_to(map_params.room_width * Dungeon.NR_ROOMS_EW, - map_params.wall_thickness / 2)
+                g.rel_line_to(0, map_params.room_height * Dungeon.NR_ROOMS_SN + map_params.wall_thickness) # easternmost wall
                 g.stroke()
-                g.set_source_rgb(*map_params.wall_color)
+            #end for
+            g.new_path()
+            g.move_to(- map_params.wall_thickness / 2, map_params.room_height * Dungeon.NR_ROOMS_SN)
+            g.rel_line_to(map_params.room_width * Dungeon.NR_ROOMS_EW + map_params.wall_thickness, 0) # southernmost wall
+            g.stroke()
+            if (
+                    dungeon[level, 0, 0].get_side(DIR.W) != ROOM_SIDE.OPEN
+                or
+                    dungeon[level, 0, 0].get_side(DIR.N) != ROOM_SIDE.OPEN
+            ) :
+                fill_notch(0, 0)
             #end if
-            if room.north_side != ROOM_SIDE.OPEN :
-                g.new_path()
-                g.move_to(east * map_params.room_width, south * map_params.room_height)
-                if room.north_side == ROOM_SIDE.WALL :
-                    g.rel_line_to(map_params.room_width, 0)
-                elif room.north_side == ROOM_SIDE.DOOR :
-                    g.rel_line_to(map_params.room_width * (1 - map_params.door_gap) / 2, 0)
-                    g.rel_move_to(map_params.room_width * map_params.door_gap, 0)
-                    g.rel_line_to(map_params.room_width * (1 - map_params.door_gap) / 2, 0)
-                elif room.north_side == ROOM_SIDE.RUBBLE :
-                    g.set_source_rgb(*map_params.rubble_color)
-                    g.rel_line_to(map_params.room_width, 0)
-                #end if
-                g.stroke()
-                g.set_source_rgb(*map_params.wall_color)
-            #end if
-            if south != 0 and east != 0 :
-                if (
-                        (room.get_side(DIR.W) != ROOM_SIDE.OPEN) != (room.neighbour(DIR.N).get_side(DIR.W) != ROOM_SIDE.OPEN)
-                    and
-                        (room.get_side(DIR.N) != ROOM_SIDE.OPEN) != (room.neighbour(DIR.W).get_side(DIR.N) != ROOM_SIDE.OPEN)
-                ) :
-                    fill_notch(east * map_params.room_width, south * map_params.room_height)
-                #end if
-            #end if
-            if room.special != SPC.NONE :
-                g.move_to((east + 0.5) * map_params.room_width, (south + 0.5) * map_params.room_height)
-                draw_centred_text(g, room.special.name)
-            #end if
-        #end for
-        g.new_path()
-        g.move_to(map_params.room_width * Dungeon.NR_ROOMS_EW, - map_params.wall_thickness / 2)
-        g.rel_line_to(0, map_params.room_height * Dungeon.NR_ROOMS_SN + map_params.wall_thickness) # easternmost wall
-        g.stroke()
+            pix.show_page()
+        #end if
     #end for
-    g.new_path()
-    g.move_to(- map_params.wall_thickness / 2, map_params.room_height * Dungeon.NR_ROOMS_SN)
-    g.rel_line_to(map_params.room_width * Dungeon.NR_ROOMS_EW + map_params.wall_thickness, 0) # southernmost wall
-    g.stroke()
-    if (
-            dungeon[level, 0, 0].get_side(DIR.W) != ROOM_SIDE.OPEN
-        or
-            dungeon[level, 0, 0].get_side(DIR.N) != ROOM_SIDE.OPEN
-    ) :
-        fill_notch(0, 0)
+    if format["save"] != None :
+        pix.flush()
+        getattr(pix, format["save"])(outfile)
     #end if
-    pix.flush()
-    pix.write_to_png(outfile)
 #end cmd_dgnmap
 
 def cmd_dgnspecials(args, opts) :
@@ -788,7 +837,7 @@ recognized_commands = \
                 "action" : cmd_dgnmap,
                 "help_usage" : "dgnfile dgnname level outfile",
                 "help_descr" :
-                    "generates a map in PNG format of the specified level of the specified dungeon",
+                    "generates a map in PDF, PNG or PostScript format of the specified level of the specified dungeon",
               },
 
             "specials" :
