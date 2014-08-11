@@ -616,6 +616,7 @@ def cmd_dgnmap(args, opts) :
                     if entry_room != None and entry_room not in reachable :
                         connected = entry_room.find_connected \
                           (
+                            follow_stairs = True,
                             follow_elevators = True,
                             follow_pits = True
                           )
