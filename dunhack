@@ -509,6 +509,8 @@ def cmd_dgnmap(args, opts) :
         access_color = colorsys.hsv_to_rgb(0.35, 0.3, 0.9)
         # reachable_color = colorsys.hsv_to_rgb(0.35, 0.1, 0.95)
         unreachable_color = colorsys.hsv_to_rgb(0.1, 0.1, 0.95)
+        cannot_leave_color = colorsys.hsv_to_rgb(0.05, 0.1, 0.95)
+        one_way_in_color = colorsys.hsv_to_rgb(0.05, 0.3, 0.9)
         prize_color = colorsys.hsv_to_rgb(0.05, 0.9, 0.8)
 
         scaling = 2.0 # for better bitmap resolution
@@ -597,6 +599,31 @@ def cmd_dgnmap(args, opts) :
     g.translate(map_params.map_padding[3], map_params.map_padding[0])
     if show_reachable and dungeon.start != None :
         reachable = dungeon[dungeon.start].find_connected(follow_stairs = True)
+        cannot_leave = set()
+        one_way_in = set()
+        for \
+            spc, direction, follow \
+        in \
+            (
+                (SPC.ELV, DIR.U, "follow_elevators"),
+                (SPC.PIT, DIR.D, "follow_pits"),
+            ) \
+        :
+            for room in dungeon.find_special_rooms(spc) :
+                if room in reachable :
+                    entry_room = room.neighbour(direction)
+                    if entry_room != None and entry_room not in reachable :
+                        connected = entry_room.find_connected(**{follow : True})
+                        if connected.isdisjoint(reachable) :
+                            one_way_in.add(room)
+                            one_way_in.add(entry_room)
+                            connected.remove(entry_room)
+                            cannot_leave.update(connected)
+                        #end if
+                    #end if
+                #end if
+            #end for
+        #end for
     else :
         reachable = None
     #end if
@@ -609,20 +636,24 @@ def cmd_dgnmap(args, opts) :
             g.set_font_size(map_params.title_size)
             g.move_to(map_params.room_width * Dungeon.NR_ROOMS_EW / 2, map_params.title_y)
             draw_centred_text(g, "%s — level %d" % (dgnname, level + 1))
-            if show_reachable :
+            if reachable != None :
                 for south in range(0, Dungeon.NR_ROOMS_SN) :
                     for east in range(0, Dungeon.NR_ROOMS_EW) :
                         room = dungeon[level, south, east]
-                        if room in reachable :
-                            if room.special in (SPC.UPS, SPC.UDS, SPC.DNS) :
+                        if room in one_way_in :
+                            fill_room(south, east, map_params.one_way_in_color)
+                        elif room in cannot_leave :
+                            fill_room(south, east, map_params.cannot_leave_color)
+                        elif room in reachable :
+                            if room.special in (SPC.UPS, SPC.UDS, SPC.DNS, SPC.ELV, SPC.PIT) :
                                 fill_room(south, east, map_params.access_color)
                             #end if
                         else :
-                             fill_room(south, east, map_params.unreachable_color)
+                            fill_room(south, east, map_params.unreachable_color)
                         #end if
                     #end for
                 #end for
-                if dungeon.start != None and level == dungeon.start[0] :
+                if level == dungeon.start[0] :
                     fill_room(dungeon.start[1], dungeon.start[2], map_params.access_color)
                 #end if
             #end if
