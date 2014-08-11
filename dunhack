@@ -22,7 +22,8 @@ from functools import \
 import sys
 import os
 import cairo
-import colorsys
+from colorsys import \
+    hsv_to_rgb as hsv
 import json
 import fnmatch
 import getopt
@@ -500,18 +501,18 @@ def cmd_dgnmap(args, opts) :
         row_coords_x = -15.0
         col_coords_y = -10.0
 
-        bg_color = colorsys.hsv_to_rgb(0, 0, 1)
-        text_color = colorsys.hsv_to_rgb(0, 0, 0)
+        bg_color = hsv(0, 0, 1)
+        text_color = hsv(0, 0, 0)
 
-        wall_color = colorsys.hsv_to_rgb(0, 0, 0)
-        grid_color = colorsys.hsv_to_rgb(0.55, 0.4, 0.8)
-        rubble_color = colorsys.hsv_to_rgb(0, 0, 0.7)
-        access_color = colorsys.hsv_to_rgb(0.35, 0.3, 0.9)
-        # reachable_color = colorsys.hsv_to_rgb(0.35, 0.1, 0.95)
-        unreachable_color = colorsys.hsv_to_rgb(0.1, 0.1, 0.95)
-        cannot_leave_color = colorsys.hsv_to_rgb(0.05, 0.1, 0.95)
-        one_way_in_color = colorsys.hsv_to_rgb(0.05, 0.3, 0.9)
-        prize_color = colorsys.hsv_to_rgb(0.05, 0.9, 0.8)
+        wall_color = hsv(0, 0, 0)
+        grid_color = hsv(0.55, 0.4, 0.8)
+        rubble_color = hsv(0, 0, 0.7)
+        access_color = hsv(0.35, 0.3, 0.9)
+        # reachable_color = hsv(0.35, 0.1, 0.95)
+        unreachable_color = hsv(0.1, 0.1, 0.95)
+        cannot_leave_color = hsv(0.05, 0.1, 0.95)
+        one_way_in_color = hsv(0.05, 0.3, 0.9)
+        prize_color = hsv(0.05, 0.9, 0.8)
 
         scaling = 2.0 # for better bitmap resolution
     #end map_params
