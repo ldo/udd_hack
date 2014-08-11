@@ -748,7 +748,7 @@ def cmd_dgnspecials(args, opts) :
             rooms = list(dungeon.find_special_rooms(spc))
             sys.stdout.write("%s: " % (spc.name))
             if len(rooms) != 0 :
-                sys.stdout.write(", ".join("[%d, %d, %d]" % (room.l, room.s, room.e) for room in rooms))
+                sys.stdout.write(", ".join("[%d, %d, %d]" % room.coords() for room in rooms))
             else :
                 sys.stdout.write("(none)")
             #end if
