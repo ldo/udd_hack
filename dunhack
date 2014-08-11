@@ -603,23 +603,29 @@ def cmd_dgnmap(args, opts) :
         cannot_leave = set()
         one_way_in = set()
         for \
-            spc, direction, follow \
+            spc, direction \
         in \
             (
-                (SPC.ELV, DIR.U, "follow_elevators"),
-                (SPC.PIT, DIR.D, "follow_pits"),
+                (SPC.ELV, DIR.U),
+                (SPC.PIT, DIR.D),
             ) \
         :
             for room in dungeon.find_special_rooms(spc) :
                 if room in reachable :
                     entry_room = room.neighbour(direction)
                     if entry_room != None and entry_room not in reachable :
-                        connected = entry_room.find_connected(**{follow : True})
+                        connected = entry_room.find_connected \
+                          (
+                            follow_elevators = True,
+                            follow_pits = True
+                          )
                         if connected.isdisjoint(reachable) :
                             one_way_in.add(room)
                             one_way_in.add(entry_room)
                             connected.remove(entry_room)
                             cannot_leave.update(connected)
+                        else :
+                            reachable.update(connected)
                         #end if
                     #end if
                 #end if
