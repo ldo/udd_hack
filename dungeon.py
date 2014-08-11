@@ -383,6 +383,13 @@ class Dungeon :
             #end if
         #end populate
 
+        def coords(self, onebased = False) :
+            "returns the room's coordinates tuple (0-based)."
+            adjust = (0, 1)[onebased]
+            return \
+                (self.l + adjust, self.s + adjust, self.e + adjust)
+        #end coords
+
         def __repr__(self) :
             return \
                 (

@@ -784,13 +784,14 @@ def cmd_dgnlint(args, opts) :
         #end if
     else :
         sys.stderr.write("dungeon is closed for repairs.\n")
+        reachable = None
     #end if
     reported = set()
     for room in dungeon.find_special_rooms(SPC.DNS) :
         if room not in reported :
             other_room = room.neighbour(DIR.D)
             if other_room == None or other_room.special not in (SPC.UDS, SPC.UPS) :
-                sys.stderr.write("room [%d,%d,%d] has down staircase with no corresponding up staircase below.\n" % (room.l, room.s, room.e))
+                sys.stderr.write("room [%d,%d,%d] has down staircase with no corresponding up staircase below.\n" % room.coords())
                 reported.add(room)
             #end if
         #end if
@@ -799,7 +800,7 @@ def cmd_dgnlint(args, opts) :
         if room not in reported :
             other_room = room.neighbour(DIR.U)
             if other_room == None or other_room.special not in (SPC.UDS, SPC.DNS) :
-                sys.stderr.write("room [%d,%d,%d] has up staircase with no corresponding down staircase above.\n" % (room.l, room.s, room.e))
+                sys.stderr.write("room [%d,%d,%d] has up staircase with no corresponding down staircase above.\n" % room.coords())
                 reported.add(room)
             #end if
         #end if
@@ -808,26 +809,25 @@ def cmd_dgnlint(args, opts) :
         if room not in reported :
             other_room = room.neighbour(DIR.D)
             if other_room == None or other_room.special not in (SPC.UDS, SPC.UPS) :
-                sys.stderr.write("room [%d,%d,%d] has up/down staircase with no corresponding up staircase below.\n" % (room.l, room.s, room.e))
+                sys.stderr.write("room [%d,%d,%d] has up/down staircase with no corresponding up staircase below.\n" % room.coords())
                 reported.add(room)
             #end if
             other_room = room.neighbour(DIR.U)
             if other_room == None or other_room.special not in (SPC.UDS, SPC.DNS) :
-                sys.stderr.write("room [%d,%d,%d] has up/down staircase with no corresponding down staircase above.\n" % (room.l, room.s, room.e))
+                sys.stderr.write("room [%d,%d,%d] has up/down staircase with no corresponding down staircase above.\n" % room.coords())
                 reported.add(room)
             #end if
         #end if
     #end for
-    nr_orbs = \
-        (
-            len(list(dungeon.find_special_rooms(SPC.DGN2)))
-        +
-            len(list(dungeon.find_special_rooms(SPC.ORB)))
-        )
-    if nr_orbs == 0 :
+    orb_rooms = list(dungeon.find_special_rooms(SPC.DGN2)) + list(dungeon.find_special_rooms(SPC.ORB))
+    if len(orb_rooms) == 0 :
         sys.stderr.write("dungeon has no Orb.\n")
-    elif nr_orbs > 1 :
+    elif len(orb_rooms) > 1 :
         sys.stderr.write("dungeon has more than one Orb.\n")
+    else :
+        if reachable != None and orb_rooms[0] not in reachable :
+            sys.stderr.write("room containing Orb is not reachable.\n")
+        #end if
     #end if
 #end cmd_dgnlint
 
