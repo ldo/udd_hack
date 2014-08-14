@@ -600,6 +600,7 @@ def cmd_dgnmap(args, opts) :
     g.translate(map_params.map_padding[3], map_params.map_padding[0])
     if show_reachable and dungeon.start != None :
         reachable = dungeon[dungeon.start].find_connected(follow_stairs = True)
+        open_rooms = set(dungeon.find_open_rooms())
         cannot_leave = set()
         one_way_in = set()
         for \
@@ -652,8 +653,8 @@ def cmd_dgnmap(args, opts) :
                             fill_room(south, east, map_params.one_way_in_color)
                         elif room in cannot_leave :
                             fill_room(south, east, map_params.cannot_leave_color)
-                        elif room in reachable :
-                            if room.special in (SPC.UPS, SPC.UDS, SPC.DNS, SPC.ELV, SPC.PIT) :
+                        elif room in reachable  :
+                            if room.special in (SPC.UPS, SPC.UDS, SPC.DNS, SPC.ELV, SPC.PIT) or room in open_rooms :
                                 fill_room(south, east, map_params.access_color)
                             #end if
                         else :
