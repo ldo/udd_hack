@@ -443,7 +443,7 @@ class Dungeon :
             #end for
             for e in range(1, Dungeon.NR_ROOMS_EW) :
                 if self.rooms[l][0][e].passable(DIR.N) :
-                    self.rooms[l][0][e]
+                    yield self.rooms[l][0][e]
                 #end if
             #end for
         #end for
