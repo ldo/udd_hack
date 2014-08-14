@@ -825,6 +825,9 @@ def cmd_dgnlint(args, opts) :
         sys.stderr.write("dungeon is closed for repairs.\n")
         reachable = None
     #end if
+    if next(dungeon.find_open_rooms(), None) == None :
+        sys.stderr.write("dungeon has no way out.\n")
+    #end if
     reported = set()
     for room in dungeon.find_special_rooms(SPC.DNS) :
         if room not in reported :
