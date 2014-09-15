@@ -603,36 +603,78 @@ def cmd_dgnmap(args, opts) :
         open_rooms = set(dungeon.find_open_rooms())
         cannot_leave = set()
         one_way_in = set()
-        for \
-            spc, direction \
-        in \
-            (
-                (SPC.ELV, DIR.U),
-                (SPC.PIT, DIR.D),
-            ) \
-        :
-            for room in dungeon.find_special_rooms(spc) :
-                if room in reachable :
-                    entry_room = room.neighbour(direction)
-                    if entry_room != None and entry_room not in reachable :
-                        connected = entry_room.find_connected \
-                          (
-                            follow_stairs = True,
-                            follow_elevators = True,
-                            follow_pits = True
-                          )
-                        if connected.isdisjoint(reachable) :
-                            one_way_in.add(room)
-                            one_way_in.add(entry_room)
-                            connected.remove(entry_room)
-                            cannot_leave.update(connected)
-                        else :
-                            reachable.update(connected)
-                        #end if
+        special_direction = \
+            {
+                SPC.ELV : DIR.U,
+                SPC.PIT : DIR.D,
+            }
+        stack = []
+        connected = reachable
+        is_reachable = True
+        exit_room = None
+        entry_room = dungeon[dungeon.start]
+        exits = None
+        while True :
+            if exits == None :
+                exits = iter \
+                  (
+                    room
+                        for spc in special_direction
+                        for room in dungeon.find_special_rooms(spc)
+                        if room in connected
+                  )
+                stack.append \
+                  (
+                    {
+                        "connected" : connected,
+                        "is_reachable" : is_reachable,
+                        "exit" : exit_room, # from previous network of rooms to here
+                        "entry" : entry_room, # into this network of rooms from there
+                        "exits" : exits, # from this network of rooms
+                    }
+                  )
+            #end if
+            room = next(exits, None)
+            if room != None :
+                entry_room = room.neighbour(special_direction[room.special])
+                if entry_room != None :
+                    if entry_room in reachable :
+                        i = len(stack)
+                        while True :
+                            i -= 1
+                            item = stack[i]
+                            if item["is_reachable"] : # always True for stack[0], so will always terminate here
+                                break
+                            reachable |= item["connected"]
+                            item["is_reachable"] = True
+                        #end while
+                        is_reachable = True
+                    else :
+                        connected = entry_room.find_connected(follow_stairs = True)
+                        is_reachable = False # to begin with
+                        exit_room = room
+                        exits = None # signal to push a new stack entry
                     #end if
                 #end if
-            #end for
-        #end for
+            else :
+                # finished checking all exits from here
+                if not is_reachable :
+                    # found no way back into reachable area
+                    last = stack[-1]
+                    one_way_in.add(last["entry"])
+                    one_way_in.add(last["exit"])
+                    connected.remove(last["entry"])
+                    cannot_leave.update(connected)
+                #end if
+                stack.pop()
+                if len(stack) == 0 :
+                    break
+                last = stack[-1]
+                connected = last["connected"]
+                is_reachable = last["is_reachable"]
+                exits = last["exits"]
+            #end if
+        #end while
     else :
         reachable = None
     #end if
