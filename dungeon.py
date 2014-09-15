@@ -294,7 +294,6 @@ class Dungeon :
             " it needs to check for membership in that set to skip rooms already processed."
             # use non-recursive algorithm to avoid overflowing Python stack.
             result = set()
-            processing = set() # rooms currently on stack, for easy membership test
             stack = []
             neighbour = self
             curdirns = None
@@ -314,10 +313,8 @@ class Dungeon :
                                 "directions" : curdirns,
                             }
                           )
-                        processing.add(room)
                     #end if
                 elif curdirns == None :
-                    processing.remove(stack[-1]["room"])
                     stack.pop()
                     if len(stack) == 0 :
                         break # all done
