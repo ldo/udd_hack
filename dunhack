@@ -675,6 +675,13 @@ def cmd_dgnmap(args, opts) :
                 exits = last["exits"]
             #end if
         #end while
+        for room in dungeon.find_special_rooms(SPC.PIT) :
+            if room in reachable and room.l + 1 == Dungeon.NR_LEVELS :
+                # bottomless pit!
+                reachable.remove(room)
+                one_way_in.add(room)
+            #end if
+        #end for
     else :
         reachable = None
     #end if
