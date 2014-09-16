@@ -651,9 +651,23 @@ def cmd_dgnmap(args, opts) :
                         is_reachable = True
                     else :
                         connected = entry_room.find_connected(follow_stairs = True)
-                        is_reachable = False # to begin with
-                        exit_room = room
-                        exits = None # signal to push a new stack entry
+                        i = len(stack)
+                        while True :
+                            if i == 0 :
+                                same_connected = False
+                                break
+                            #end if
+                            i -= 1
+                            if connected == stack[i]["connected"] :
+                                same_connected = True
+                                break
+                            #end if
+                        #end while
+                        if not same_connected :
+                            is_reachable = False # to begin with
+                            exit_room = room
+                            exits = None # signal to push a new stack entry
+                        #end if
                     #end if
                 #end if
             else :
@@ -663,7 +677,7 @@ def cmd_dgnmap(args, opts) :
                     last = stack[-1]
                     one_way_in.add(last["entry"])
                     one_way_in.add(last["exit"])
-                    connected.remove(last["entry"])
+                    connected.discard(last["entry"])
                     cannot_leave.update(connected)
                 #end if
                 stack.pop()
