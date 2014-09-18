@@ -287,7 +287,7 @@ class Dungeon :
                 result
         #end passable
 
-        def find_connected(self, follow_stairs = False, follow_elevators = False, follow_pits = False) :
+        def find_connected(self, follow_stairs = False, follow_half_stairs = False, follow_elevators = False, follow_pits = False) :
             "finds all rooms that can be accessed to from this one just by simple movements" \
             " (no teleport or transporter or spells), optionally going up/down stairs/elevators" \
             "/pits as well. This is not an iterator, it returns the whole set at once, since" \
@@ -304,7 +304,7 @@ class Dungeon :
                         room = neighbour
                         curdirns = iter \
                           (
-                            (DIR.N, DIR.E, DIR.S, DIR.W) + ((), (DIR.U,))[follow_stairs or follow_elevators] + ((), (DIR.D,))[follow_stairs or follow_pits]
+                            (DIR.N, DIR.E, DIR.S, DIR.W) + ((), (DIR.U,))[follow_stairs or follow_half_stairs or follow_elevators] + ((), (DIR.D,))[follow_stairs or follow_half_stairs or follow_pits]
                           )
                         stack.append \
                           (
@@ -328,21 +328,31 @@ class Dungeon :
                         if (
                                 room.special
                             in
-                                    ((), (self.parent.SPC.UPS, self.parent.SPC.UDS))[follow_stairs]
+                                    ((), (self.parent.SPC.UPS, self.parent.SPC.UDS))[follow_stairs or follow_half_stairs]
                                 +
                                     ((), (self.parent.SPC.ELV,))[follow_elevators]
                         ) :
                             neighbour = room.neighbour(DIR.U)
+                            if neighbour != None and follow_stairs > follow_half_stairs :
+                                if neighbour.special not in (self.parent.SPC.DNS, self.parent.SPC.UDS) :
+                                    neighbour = None # no way back
+                                #end if
+                            #end if
                         #end if
                     elif direction == DIR.D :
                         if (
                                 room.special
                             in
-                                    ((), (self.parent.SPC.DNS, self.parent.SPC.UDS))[follow_stairs]
+                                    ((), (self.parent.SPC.DNS, self.parent.SPC.UDS))[follow_stairs or follow_half_stairs]
                                 +
                                     ((), (self.parent.SPC.PIT,))[follow_pits]
                         ) :
                             neighbour = room.neighbour(DIR.D)
+                            if neighbour != None and follow_stairs > follow_half_stairs :
+                                if neighbour.special not in (self.parent.SPC.UPS, self.parent.SPC.UDS) :
+                                    neighbour = None # no way back
+                                #end if
+                            #end if
                         #end if
                     elif room.passable(direction) :
                         neighbour = room.neighbour(direction)

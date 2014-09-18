@@ -388,7 +388,6 @@ def cmd_dgnencode(args, opts) :
                     #end if
                     namestr = line[:splitpos].rstrip()
                     levelstr = line[splitpos + len("LEVEL"):].lstrip().rstrip()
-                    sys.stderr.write("new level, name(%d) = %s, level = %s\n" % (len(namestr), repr(namestr), levelstr)) # debug
                     if state == STATE.EXPECT_FIRST_TITLE :
                         dungeon_name = namestr
                         d = Dungeon.new_empty(dungeon_name)
@@ -603,24 +602,30 @@ def cmd_dgnmap(args, opts) :
         open_rooms = set(dungeon.find_open_rooms())
         cannot_leave = set()
         one_way_in = set()
-        special_direction = \
+        special_directions = \
             {
-                SPC.ELV : DIR.U,
-                SPC.PIT : DIR.D,
+                SPC.ELV : {DIR.U},
+                SPC.PIT : {DIR.D},
+              # following are for half-stairs--that is, no corresponding
+              # return staircase in destination room
+                SPC.DNS : {DIR.D},
+                SPC.UDS : {DIR.D, DIR.U},
+                SPC.UPS : {DIR.U},
             }
         stack = []
         connected = reachable
         is_reachable = True
-        exit_room = None
+        exit_room = None # actually ignored at start
         entry_room = dungeon[dungeon.start]
         exits = None
         while True :
             if exits == None :
-                exits = iter \
+                exits = set \
                   (
-                    room
-                        for spc in special_direction
+                    (room, direction)
+                        for spc in special_directions
                         for room in dungeon.find_special_rooms(spc)
+                        for direction in special_directions[spc]
                         if room in connected
                   )
                 stack.append \
@@ -634,9 +639,31 @@ def cmd_dgnmap(args, opts) :
                     }
                   )
             #end if
-            room = next(exits, None)
+            if len(exits) != 0 :
+                room, direction = exits.pop()
+            else :
+                room = None
+            #end if
             if room != None :
-                entry_room = room.neighbour(special_direction[room.special])
+                entry_room = room.neighbour(direction)
+                if entry_room != None :
+                    if (
+                                direction == DIR.U
+                            and
+                                room.special in (SPC.UDS, SPC.UPS)
+                            and
+                                entry_room.special in (SPC.DNS, SPC.UDS)
+                        or
+                                direction == DIR.D
+                            and
+                                room.special in (SPC.DNS, SPC.UDS)
+                            and
+                                entry_room.special in (SPC.UDS, SPC.UPS)
+                    ) :
+                        # full staircase--ignore
+                        entry_room = None
+                    #end if
+                #end if
                 if entry_room != None :
                     if entry_room in reachable :
                         i = len(stack)
@@ -652,18 +679,30 @@ def cmd_dgnmap(args, opts) :
                     else :
                         connected = entry_room.find_connected(follow_stairs = True)
                         i = len(stack)
+                        merged_connected = False
                         while True :
-                            if i == 0 :
-                                same_connected = False
+                            if i == 0 : # no loop back
                                 break
-                            #end if
                             i -= 1
-                            if connected == stack[i]["connected"] :
-                                same_connected = True
+                            if connected <= stack[i]["connected"] :
+                                assert i != 0 # else entry_room would have been in reachable
+                                # loop back--merge all stack entries in-between
+                                last = stack[i]
+                                for j in range(i + 1, len(stack)) :
+                                    last["connected"] |= stack[j]["connected"]
+                                    last["exits"] |= stack[j]["exits"]
+                                #end for
+                                del stack[i + 1:]
+                                merged_connected = True
                                 break
                             #end if
                         #end while
-                        if not same_connected :
+                        if merged_connected :
+                            last = stack[-1]
+                            connected = last["connected"]
+                            is_reachable = last["is_reachable"]
+                            exits = last["exits"]
+                        else :
                             is_reachable = False # to begin with
                             exit_room = room
                             exits = None # signal to push a new stack entry
@@ -677,8 +716,8 @@ def cmd_dgnmap(args, opts) :
                     last = stack[-1]
                     one_way_in.add(last["entry"])
                     one_way_in.add(last["exit"])
-                    connected.discard(last["entry"])
-                    cannot_leave.update(connected)
+                    last["connected"].discard(last["entry"])
+                    cannot_leave.update(last["connected"])
                 #end if
                 stack.pop()
                 if len(stack) == 0 :
