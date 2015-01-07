@@ -6,6 +6,7 @@
 #-
 
 from enum import \
+    unique, \
     Enum, \
     IntEnum
 import struct
@@ -63,6 +64,7 @@ def fromcstring(b) :
 # Dungeon representation
 #-
 
+@unique
 class DIR(Enum) :
     "spatial directions."
     N = 0 # north
@@ -96,6 +98,7 @@ class Dungeon :
     # and similarly east side from west side of room to east
     ROOM_SPECIAL = Bitfield(4, 4) # special contents for room (0 means none)
 
+    @unique
     class ROOM_SIDE(IntEnum) :
         "values for ROOM_xxx_SIDE fields."
         OPEN = 0 # room is open on that side
@@ -118,6 +121,7 @@ class Dungeon :
     ROOM_TREASURE = Bitfield(9, 1) # there is treasure in the room
     ROOM_TREASURE_BOOBYTRAP = Bitfield(10, 1) # the treasure is booby-trapped
 
+    @unique
     class SPC(IntEnum) :
         "codes for special room contents."
         NONE = 0 # nothing
@@ -680,6 +684,7 @@ class Character :
     "represents a single character. Use the decode_bytes method to load one" \
     " from the stored file representation, or the constructor to create a new one."
 
+    @unique
     class UC(IntEnum) :
         "indexes into character attributes array (65 elements)."
         ALIVE = 0 # character is actually alive
@@ -746,6 +751,7 @@ class Character :
         STATE = 64 # controls what to do with character next
     #end UC
 
+    @unique
     class CHRCLASS(IntEnum) :
         "character classes."
         FIGHTER = 0
