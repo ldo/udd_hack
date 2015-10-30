@@ -11,14 +11,12 @@
 #
 # for an overview of available commands.
 #
-# Copyright 2014 by Lawrence D'Oliveiro <ldo@geek-central.gen.nz>.
+# Copyright 2014-2015 by Lawrence D'Oliveiro <ldo@geek-central.gen.nz>.
 # Licensed under CC-BY-SA <http://creativecommons.org/licenses/by-sa/4.0/>.
 #-
 
 from enum import \
     Enum
-from functools import \
-    reduce
 import sys
 import os
 import cairo
@@ -912,7 +910,7 @@ def cmd_dgnlint(args, opts) :
         reachable = dungeon[dungeon.start].find_connected(follow_stairs = True)
         unreachable_levels = set()
         for level in range(0, Dungeon.NR_LEVELS) :
-            if reduce(lambda a, b : a and b, (dungeon[level, s, e] not in reachable for s in range(0, Dungeon.NR_ROOMS_SN) for e in range(0, Dungeon.NR_ROOMS_EW)), True) :
+            if all(dungeon[level, s, e] not in reachable for s in range(0, Dungeon.NR_ROOMS_SN) for e in range(0, Dungeon.NR_ROOMS_EW)) :
                 unreachable_levels.add(level)
             #end if
         #end for
