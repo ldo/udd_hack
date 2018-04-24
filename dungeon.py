@@ -825,7 +825,7 @@ class CharacterFile :
     "represents the contents of a character file. The characters field" \
     " is a list of Character instances. Use the load method to create a CharacterFile" \
     " object from the contents of a character file, or the constructor to create" \
-    " a new, empty CharacterFile object.."
+    " a new, empty CharacterFile object."
 
     def __init__(self) :
         self.nr_characters = 0
