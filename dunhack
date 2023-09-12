@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 #+
-# Tool to commit hacks on dungeon and character files for udd <https://github.com/ldo/udd>.
+# Tool to commit hacks on dungeon and character files for udd <https://bitbucket.org/ldo17/udd>.
 # Invoke as
 #
 #     dunhack <cmd> ...
